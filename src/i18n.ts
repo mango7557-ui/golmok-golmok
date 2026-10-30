@@ -38,6 +38,19 @@ const regularStrings:Record<string,Text>={
  orderDelivery:['택배 주문하기','Order parcel','快递下单','宅配で注文'],
  deliverySetting:['온라인몰 · 택배 주문 설정','Online shop · Parcel settings','在线商城 · 快递设置','オンライン・宅配設定'],
  enableDelivery:['택배 주문 받기','Accept parcel orders','开启快递接单','宅配注文を受け付ける'],
+ vouchers:['지역 상품권','Regional vouchers','地区商品券','地域商品券'],
+ voucherWallet:['지역별 상품권 지갑 (데모)','Regional voucher wallet (demo)','地区商品券钱包（演示）','地域別商品券ウォレット（デモ）'],
+ voucherUse:['지역 상품권 사용','Use regional voucher','使用地区商品券','地域商品券利用'],
+ voucherAmount:['상품권 사용 금액','Voucher amount','商品券使用金额','商品券利用額'],
+ voucherAll:['전액 사용','Use max','全额使用','全額利用'],
+ voucherCharge:['+10,000원 데모 충전','+₩10,000 demo top-up','+10,000韩元演示充值','+10,000ウォン デモチャージ'],
+ voucherCharged:['지역 상품권 데모 잔액이 충전되었습니다','Demo voucher balance topped up','已充值演示商品券余额','地域商品券デモ残高をチャージしました'],
+ voucherAccepted:['사용 가능 지역 상품권','Accepted regional vouchers','可用地区商品券','利用可能な地域商品券'],
+ voucherNotice:['데모 상품권 액면 금액으로 차감 · 구매 할인 중복 차감 없음 · 취소/환불 시 잔액 복원','Deducted at face value (demo) · no duplicate purchase discount · restored on cancel/refund','按演示商品券面额抵扣 · 不重复计算购买折扣 · 取消/退款时恢复余额','デモ商品券の額面で 차감・購入割引の重複適用なし・取消/返金時に残高復元'],
+ voucherSetting:['가맹 지역 상품권 설정','Accepted regional vouchers','加盟地区商品券设置','加盟地域商品券設定'],
+ voucherLedger:['상품권 이용 내역','Voucher activity','商品券记录','商品券履歴'],
+ charge:['충전','Top-up','充值','チャージ'],
+ allVouchers:['전체 상품권','All vouchers','全部商品券','すべての商品券'],
 };
 export function t(key:string,lang:Lang){const value=regularStrings[key]??strings[key];return value?text(value,lang):key;}
 export const won=(n:number,lang:Lang='ko')=>new Intl.NumberFormat(({ko:'ko-KR',en:'en-US',zh:'zh-CN',ja:'ja-JP'})[lang],{style:'currency',currency:'KRW',maximumFractionDigits:0}).format(n);
