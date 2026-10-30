@@ -1,0 +1,18 @@
+import {chromium,expect} from '@playwright/test';
+import {pathToFileURL} from 'node:url';
+import path from 'node:path';
+const browser=await chromium.launch();
+const p=await browser.newPage({viewport:{width:1440,height:1000}});
+const errors=[];p.on('pageerror',e=>errors.push(e.message));
+await p.route('https://**/*',r=>r.abort());
+await p.goto(pathToFileURL(path.resolve('dist/index.html')).href);
+await expect(p.locator('.store-card')).toHaveCount(15);
+await expect(p.locator('.demo-map')).toBeVisible();
+await p.locator('.store-card-main').first().click();
+await expect(p.locator('.detail-panel')).toBeVisible();
+await p.locator('.add-item').first().click();await p.locator('.detail-footer .primary').click();
+await p.getByRole('button',{name:'데모 결제하고 주문'}).click();
+await expect(p.locator('.order-card')).toHaveCount(1);
+if(errors.length)throw Error(errors.join('\n'));
+console.log('PASS delivery: self-contained dist/index.html runs via file://, external network blocked, photo fallback, interactive map, detail, checkout and order');
+await browser.close();
