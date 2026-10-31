@@ -43,7 +43,7 @@ function DemoMap({stores,state,selected,onSelect,onSearch,onLocation,mode,lang,m
   <div className="map-top-note"><span className="live-dot"/>{t('virtual',lang)}<span className="map-note-divider"/>Seongsu, Seoul</div>
   <button className={`search-area ${moving?'moved':''}`} onClick={()=>{onSearch(visibleBounds());setMoving(false);}}><RotateCw size={15}/>{t('searchHere',lang)}</button>
   <div className="map-controls"><button title={t('location',lang)} aria-label={t('location',lang)} onClick={onLocation}><LocateFixed size={20}/></button><div className="zoom-controls"><button title="Zoom in" aria-label="Zoom in" onClick={()=>zoom(.25)}><Plus size={20}/></button><button title="Zoom out" aria-label="Zoom out" onClick={()=>zoom(-.25)}><Minus size={20}/></button></div><button aria-label={t('resetFilters',lang)} title={t('resetFilters',lang)} onClick={()=>{setView({x:700,y:490,z:1});onSearch({left:0,right:1400,top:0,bottom:1000});}}><Layers size={20}/></button></div>
-  <div className="map-caption"><span className="map-wordmark">golmok<span>golmok</span></span><span>{t('mapDemo',lang)}</span><span className="map-scale">100m {lang==='ko'?'예시':'demo'}</span></div>
+  <div className="map-caption"><span className="map-wordmark">SEONGSU<span>ALLEY</span></span><span>{t('mapDemo',lang)}</span><span className="map-scale">100m {lang==='ko'?'예시':'demo'}</span></div>
  </div>;
 }
 export const mapAdapter:MapAdapter={name:'Seongsu illustrated map',kind:'demo',Component:DemoMap};
