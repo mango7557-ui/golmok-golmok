@@ -1,19 +1,470 @@
-import { type Store,type State,type Text, type Category, type VoucherId } from './domain';
-const names:Text[]=[['온기 식탁','Ongi Table','温暖餐桌','オンギ食堂'],['틈 커피','Teum Coffee','隙间咖啡','トゥムコーヒー'],['오월의 물건','Objects of May','五月小物','五月の雑貨'],['흙과 손','Clay & Hands','泥与手','土と手'],['모퉁이 파스타','Corner Pasta','转角意面','角のパスタ'],['느린 빵집','Slow Bakery','慢时光面包','ゆっくりベーカリー'],['초록 한 그릇','Green Bowl','绿意碗','緑のボウル'],['취향 수집소','Taste Archive','喜好收藏所','好みの収集所'],['스튜디오 결','Studio Gyeol','纹理工作室','スタジオ結'],['레이어 성수','Layer Seongsu','层次圣水','レイヤー聖水'],['골목 로스터스','Alley Roasters','小巷烘焙','路地ロースターズ'],['작은 우동집','Little Udon','小小乌冬屋','小さなうどん屋'],['오늘의 향','Scent of Today','今日香气','今日の香り'],['페이퍼 가든','Paper Garden','纸上花园','ペーパーガーデン'],['밤의 찻집','Night Tea','夜间茶馆','夜の茶屋']];
-const category:Category[]=['food','cafe','shop','studio','food','cafe','food','shop','studio','popup','cafe','food','studio','popup','cafe'];
-const photos=['photo-1517248135467-4c7edcad34c4','photo-1501339847302-ac426a4a7cbb','photo-1490481651871-ab68de25d43d','photo-1565193298595-6ba6e9c94b12','photo-1555396273-367ea4eb4db5','photo-1509440159596-0249088772ff','photo-1512621776951-a57141f2eefd','photo-1494438639946-1ebd1d20bf85','photo-1455390582262-044cdead277a','photo-1531058020387-3be344556be6','photo-1442512595331-e89e73853f31','photo-1569718212165-3a8278d5f624','photo-1608571423902-eed4a5ad8108','photo-1455390582262-044cdead277a','photo-1544787219-7f47ccb76574'];
-const coords=[[490,440],[810,330],[310,640],[1060,570],[650,660],[1010,290],[390,290],[800,770],[1130,760],[620,210],[190,380],[910,540],[450,800],[1180,390],[670,490]];
-const menus:Record<Category,{names:Text[];prices:number[];des:Text}>={
- food:{names:[['숯불 간장 닭구이 정식','Grilled chicken set','炭烤鸡肉套餐','炭火チキン定食'],['제철 채소 비빔밥','Seasonal vegetable bowl','时蔬拌饭','旬野菜ビビンバ'],['수제 유자 에이드','House yuzu ade','自制柚子汽水','自家製ゆずエード']],prices:[14000,11000,5000],des:['따뜻하게 준비하는 오늘의 한 끼','A freshly made, comforting meal','现做的暖心一餐','心温まるできたての一品']},
- cafe:{names:[['시그니처 크림 라떼','Signature cream latte','招牌奶油拿铁','シグネチャークリームラテ'],['아메리카노','Americano','美式咖啡','アメリカーノ'],['소금 버터 스콘','Salted butter scone','盐黄油司康','塩バタースコーン']],prices:[6500,4500,4800],des:['골목 산책에 작은 여유를 더해요','A little pause on your alley walk','为小巷漫步增添片刻闲暇','路地散歩に小さなひと息']},
- shop:{names:[['골목 머그컵','Alley mug','小巷马克杯','路地マグカップ'],['포켓 노트 세트','Pocket notebook set','口袋笔记本套装','ポケットノートセット'],['리넨 에코백','Linen tote','亚麻手提袋','リネントート']],prices:[18000,9000,22000],des:['일상의 작은 취향을 발견하세요','Find something for your everyday','发现日常中的小喜好','日常の小さな好みを見つけよう']},
- studio:{names:[['핸드메이드 미니 오브제','Handmade mini object','手工小摆件','手作りミニオブジェ'],['나만의 키링 키트','Personal keyring kit','专属钥匙扣套装','自分だけのキーリングキット'],['감사 카드 세트','Thank-you card set','感谢卡套装','ありがとうカードセット']],prices:[24000,15000,6000],des:['손끝에서 시작되는 작은 이야기','A story made by hand','从指尖开始的小故事','手から生まれる小さな物語']},
- popup:{names:[['시즌 에디션 포스터','Seasonal edition poster','季节限定海报','シーズンポスター'],['아티스트 스티커팩','Artist sticker pack','艺术家贴纸包','アーティストステッカー'],['리미티드 토트백','Limited tote bag','限量手提袋','限定トートバッグ']],prices:[12000,5000,19000],des:['지금 이곳에서만 만나는 영감','Discover a little inspiration here','在此遇见当下灵感','今ここで出会うインスピレーション']}
-};
-export function initialState():State {
- const deliveryIds=['s2','s3','s4','s6','s8','s9','s10','s11','s13','s14','s15'];
- const storeVouchers:Record<string,VoucherId[]>={s1:['seongdong','seoul','onnuri'],s2:['seongdong','seoul'],s3:['seongdong','seoul','onnuri'],s4:['seongdong','onnuri','gyeonggi'],s5:['seongdong','seoul'],s6:['seongdong','seoul','onnuri'],s7:['seongdong','seoul'],s8:['seongdong','seoul','busan'],s9:['seongdong','gyeonggi'],s10:['seoul','gyeonggi','busan'],s11:['seongdong','seoul','onnuri'],s12:['seongdong','seoul'],s13:['seongdong','gyeonggi'],s14:['seoul','busan'],s15:['seongdong','seoul','onnuri']};
- const stores:Store[]=names.map((name,i)=>{const cat=category[i];const id=`s${i+1}`;const delivery=deliveryIds.includes(id);const vouchers=storeVouchers[id]??['seongdong','seoul'];const open=cat==='cafe'?'10:00':cat==='studio'?'12:00':'11:00';const close=i===14?'02:00':cat==='food'?'21:00':cat==='cafe'?'22:00':cat==='studio'?'19:00':'20:00';return {id,name,category:cat,description:menus[cat].des,tags:[name[0],name[1],cat,'성수','상품권',...(delivery?['택배','온라인','배송','shipping','mall']:[]),...({food:['한식','점심','밥집'],cafe:['커피','디저트','coffee'],shop:['선물','리빙'],studio:['체험','수공예'],popup:['전시','팝업']}[cat])],x:coords[i][0],y:coords[i][1],lat:37.544+coords[i][1]*0.000003,lng:127.049+coords[i][0]*0.000003,address:`서울 성동구 성수이로 ${18+i*3}길 ${4+i} · 위치 예시`,photo:`https://images.unsplash.com/${photos[i]}?auto=format&fit=crop&w=800&q=80`,hours:{weekly:Object.fromEntries([0,1,2,3,4,5,6].map(d=>[d,i===8?null:[i===14?'17:00':open,close]])),breaks:cat==='food'?[['15:00','17:00']]:i===3?null:[],lastOrder:30,closedDays:cat==='studio'?[0,1]:i%4===0?[0]:[1],exceptions:i===9?{'2026-10-28':{closed:true}}:{}},pickup:cat!=='studio',pickupWindow:[i===14?'17:00':open,close],preparation:cat==='food'?20:10,capacity:5,delivery,shippingFee:delivery?(cat==='studio'?3500:3000):0,freeShippingMin:delivery?30000:0,shippingLead:['주문 후 1~2일 내 발송 (데모)','Ships in 1–2 days (demo)','下单后1~2天内发货（演示）','注文後1〜2日以内に発送（デモ）'],vouchers,menu:menus[cat].names.map((n,j)=>({id:`s${i+1}m${j+1}`,name:n,price:menus[cat].prices[j],description:menus[cat].des,soldOut:i===5&&j===2,options:j===0?[{id:'basic',name:['기본','Standard','标准','基本'],price:0},{id:'extra',name:cat==='food'?['밥 추가','Extra rice','加米饭','ご飯追加']:cat==='cafe'?['샷 추가','Extra shot','加浓缩','ショット追加']:['선물 포장','Gift wrapping','礼品包装','ギフト包装'],price:1000}]:[]})),rate:i%3===0?3:2,pointCap:2000,campaignCap:100000,pointMin:5000,pointExpiry:365,stackPoints:true,mission:i!==9&&i!==14,verified:'2026-10-27'};});
- return {version:3,stores,coupons:[0,1,2,4,5,6,10,11].map((i,j)=>({id:`c${j+1}`,storeId:stores[i].id,title:['골목에서 만나는 첫 혜택','Your first alley perk','小巷初见礼','路地のはじめて特典'],amount:i===0?2000:1000,min:i===0?12000:5000,start:'2026-10-01',end:'2026-12-31',from:'10:00',to:'22:00',quantity:100,excluded:'',stack:true,template:0})),couponIssues:[],orders:[],payments:[],conversations:[],ledger:[{id:'welcome-s1',storeId:'s1',amount:800,kind:'welcome',createdAt:'2026-10-01T00:00:00+09:00',expiresAt:'2027-10-01'},{id:'welcome-s2',storeId:'s2',amount:350,kind:'welcome',createdAt:'2026-10-01T00:00:00+09:00',expiresAt:'2027-10-01'}],voucherLedger:[{id:'v-init-seongdong',voucherId:'seongdong',amount:30000,kind:'charge',createdAt:'2026-10-01T00:00:00+09:00'},{id:'v-init-seoul',voucherId:'seoul',amount:20000,kind:'charge',createdAt:'2026-10-01T00:00:00+09:00'},{id:'v-init-onnuri',voucherId:'onnuri',amount:15000,kind:'charge',createdAt:'2026-10-01T00:00:00+09:00'},{id:'v-init-gyeonggi',voucherId:'gyeonggi',amount:10000,kind:'charge',createdAt:'2026-10-01T00:00:00+09:00'},{id:'v-init-busan',voucherId:'busan',amount:10000,kind:'charge',createdAt:'2026-10-01T00:00:00+09:00'}],saved:[],cart:null,lang:'ko',clock:'lunch',missionRewards:{}};
+import {
+  type Store,
+  type State,
+  type Text,
+  type Category,
+  type VoucherId,
+} from "./domain";
+const names: Text[] = [
+  ["온기 식탁", "Ongi Table", "温暖餐桌", "オンギ食堂"],
+  ["틈 커피", "Teum Coffee", "隙间咖啡", "トゥムコーヒー"],
+  ["오월의 물건", "Objects of May", "五月小物", "五月の雑貨"],
+  ["흙과 손", "Clay & Hands", "泥与手", "土と手"],
+  ["모퉁이 파스타", "Corner Pasta", "转角意面", "角のパスタ"],
+  ["느린 빵집", "Slow Bakery", "慢时光面包", "ゆっくりベーカリー"],
+  ["초록 한 그릇", "Green Bowl", "绿意碗", "緑のボウル"],
+  ["취향 수집소", "Taste Archive", "喜好收藏所", "好みの収集所"],
+  ["스튜디오 결", "Studio Gyeol", "纹理工作室", "スタジオ結"],
+  ["레이어 성수", "Layer Seongsu", "层次圣水", "レイヤー聖水"],
+  ["골목 로스터스", "Alley Roasters", "小巷烘焙", "路地ロースターズ"],
+  ["작은 우동집", "Little Udon", "小小乌冬屋", "小さなうどん屋"],
+  ["오늘의 향", "Scent of Today", "今日香气", "今日の香り"],
+  ["페이퍼 가든", "Paper Garden", "纸上花园", "ペーパーガーデン"],
+  ["밤의 찻집", "Night Tea", "夜间茶馆", "夜の茶屋"],
+];
+const category: Category[] = [
+  "food",
+  "cafe",
+  "shop",
+  "studio",
+  "food",
+  "cafe",
+  "food",
+  "shop",
+  "studio",
+  "popup",
+  "cafe",
+  "food",
+  "studio",
+  "popup",
+  "cafe",
+];
+const photos = [
+  "photo-1517248135467-4c7edcad34c4",
+  "photo-1501339847302-ac426a4a7cbb",
+  "photo-1490481651871-ab68de25d43d",
+  "photo-1565193298595-6ba6e9c94b12",
+  "photo-1555396273-367ea4eb4db5",
+  "photo-1509440159596-0249088772ff",
+  "photo-1512621776951-a57141f2eefd",
+  "photo-1494438639946-1ebd1d20bf85",
+  "photo-1455390582262-044cdead277a",
+  "photo-1531058020387-3be344556be6",
+  "photo-1442512595331-e89e73853f31",
+  "photo-1569718212165-3a8278d5f624",
+  "photo-1608571423902-eed4a5ad8108",
+  "photo-1455390582262-044cdead277a",
+  "photo-1544787219-7f47ccb76574",
+];
+const coords = [
+  [490, 440],
+  [810, 330],
+  [310, 640],
+  [1060, 570],
+  [650, 660],
+  [1010, 290],
+  [390, 290],
+  [800, 770],
+  [1130, 760],
+  [620, 210],
+  [190, 380],
+  [910, 540],
+  [450, 800],
+  [1180, 390],
+  [670, 490],
+];
+const menus: Record<Category, { names: Text[]; prices: number[]; des: Text }> =
+  {
+    food: {
+      names: [
+        [
+          "숯불 간장 닭구이 정식",
+          "Grilled chicken set",
+          "炭烤鸡肉套餐",
+          "炭火チキン定食",
+        ],
+        [
+          "제철 채소 비빔밥",
+          "Seasonal vegetable bowl",
+          "时蔬拌饭",
+          "旬野菜ビビンバ",
+        ],
+        [
+          "수제 유자 에이드",
+          "House yuzu ade",
+          "自制柚子汽水",
+          "自家製ゆずエード",
+        ],
+      ],
+      prices: [14000, 11000, 5000],
+      des: [
+        "따뜻하게 준비하는 오늘의 한 끼",
+        "A freshly made, comforting meal",
+        "现做的暖心一餐",
+        "心温まるできたての一品",
+      ],
+    },
+    cafe: {
+      names: [
+        [
+          "시그니처 크림 라떼",
+          "Signature cream latte",
+          "招牌奶油拿铁",
+          "シグネチャークリームラテ",
+        ],
+        ["아메리카노", "Americano", "美式咖啡", "アメリカーノ"],
+        [
+          "소금 버터 스콘",
+          "Salted butter scone",
+          "盐黄油司康",
+          "塩バタースコーン",
+        ],
+      ],
+      prices: [6500, 4500, 4800],
+      des: [
+        "골목 산책에 작은 여유를 더해요",
+        "A little pause on your alley walk",
+        "为小巷漫步增添片刻闲暇",
+        "路地散歩に小さなひと息",
+      ],
+    },
+    shop: {
+      names: [
+        ["골목 머그컵", "Alley mug", "小巷马克杯", "路地マグカップ"],
+        [
+          "포켓 노트 세트",
+          "Pocket notebook set",
+          "口袋笔记本套装",
+          "ポケットノートセット",
+        ],
+        ["리넨 에코백", "Linen tote", "亚麻手提袋", "リネントート"],
+      ],
+      prices: [18000, 9000, 22000],
+      des: [
+        "일상의 작은 취향을 발견하세요",
+        "Find something for your everyday",
+        "发现日常中的小喜好",
+        "日常の小さな好みを見つけよう",
+      ],
+    },
+    studio: {
+      names: [
+        [
+          "핸드메이드 미니 오브제",
+          "Handmade mini object",
+          "手工小摆件",
+          "手作りミニオブジェ",
+        ],
+        [
+          "나만의 키링 키트",
+          "Personal keyring kit",
+          "专属钥匙扣套装",
+          "自分だけのキーリングキット",
+        ],
+        [
+          "감사 카드 세트",
+          "Thank-you card set",
+          "感谢卡套装",
+          "ありがとうカードセット",
+        ],
+      ],
+      prices: [24000, 15000, 6000],
+      des: [
+        "손끝에서 시작되는 작은 이야기",
+        "A story made by hand",
+        "从指尖开始的小故事",
+        "手から生まれる小さな物語",
+      ],
+    },
+    popup: {
+      names: [
+        [
+          "시즌 에디션 포스터",
+          "Seasonal edition poster",
+          "季节限定海报",
+          "シーズンポスター",
+        ],
+        [
+          "아티스트 스티커팩",
+          "Artist sticker pack",
+          "艺术家贴纸包",
+          "アーティストステッカー",
+        ],
+        [
+          "리미티드 토트백",
+          "Limited tote bag",
+          "限量手提袋",
+          "限定トートバッグ",
+        ],
+      ],
+      prices: [12000, 5000, 19000],
+      des: [
+        "지금 이곳에서만 만나는 영감",
+        "Discover a little inspiration here",
+        "在此遇见当下灵感",
+        "今ここで出会うインスピレーション",
+      ],
+    },
+  };
+export function initialState(): State {
+  const deliveryIds = [
+    "s2",
+    "s3",
+    "s4",
+    "s6",
+    "s8",
+    "s9",
+    "s10",
+    "s11",
+    "s13",
+    "s14",
+    "s15",
+  ];
+  const storeVouchers: Record<string, VoucherId[]> = {
+    s1: ["seongdong", "seoul", "onnuri"],
+    s2: ["seongdong", "seoul"],
+    s3: ["seongdong", "seoul", "onnuri"],
+    s4: ["seongdong", "onnuri", "gyeonggi"],
+    s5: ["seongdong", "seoul"],
+    s6: ["seongdong", "seoul", "onnuri"],
+    s7: ["seongdong", "seoul"],
+    s8: ["seongdong", "seoul", "busan"],
+    s9: ["seongdong", "gyeonggi"],
+    s10: ["seoul", "gyeonggi", "busan"],
+    s11: ["seongdong", "seoul", "onnuri"],
+    s12: ["seongdong", "seoul"],
+    s13: ["seongdong", "gyeonggi"],
+    s14: ["seoul", "busan"],
+    s15: ["seongdong", "seoul", "onnuri"],
+  };
+  const stores: Store[] = names.map((name, i) => {
+    const cat = category[i];
+    const id = `s${i + 1}`;
+    const delivery = deliveryIds.includes(id);
+    const vouchers = storeVouchers[id] ?? ["seongdong", "seoul"];
+    const open =
+      cat === "cafe" ? "10:00" : cat === "studio" ? "12:00" : "11:00";
+    const close =
+      i === 14
+        ? "02:00"
+        : cat === "food"
+          ? "21:00"
+          : cat === "cafe"
+            ? "22:00"
+            : cat === "studio"
+              ? "19:00"
+              : "20:00";
+    return {
+      id,
+      name,
+      category: cat,
+      description: menus[cat].des,
+      tags: [
+        name[0],
+        name[1],
+        cat,
+        "성수",
+        "상품권",
+        ...(delivery ? ["택배", "온라인", "배송", "shipping", "mall"] : []),
+        ...{
+          food: ["한식", "점심", "밥집"],
+          cafe: ["커피", "디저트", "coffee"],
+          shop: ["선물", "리빙"],
+          studio: ["체험", "수공예"],
+          popup: ["전시", "팝업"],
+        }[cat],
+      ],
+      x: coords[i][0],
+      y: coords[i][1],
+      lat: 37.544 + coords[i][1] * 0.000003,
+      lng: 127.049 + coords[i][0] * 0.000003,
+      address: `서울 성동구 성수이로 ${18 + i * 3}길 ${4 + i} · 위치 예시`,
+      photo: `https://images.unsplash.com/${photos[i]}?auto=format&fit=crop&w=800&q=80`,
+      hours: {
+        weekly: Object.fromEntries(
+          [0, 1, 2, 3, 4, 5, 6].map((d) => [
+            d,
+            i === 8 ? null : [i === 14 ? "17:00" : open, close],
+          ]),
+        ),
+        breaks: cat === "food" ? [["15:00", "17:00"]] : i === 3 ? null : [],
+        lastOrder: 30,
+        closedDays: cat === "studio" ? [0, 1] : i % 4 === 0 ? [0] : [1],
+        exceptions: i === 9 ? { "2026-10-28": { closed: true } } : {},
+      },
+      pickup: cat !== "studio",
+      pickupWindow: [i === 14 ? "17:00" : open, close],
+      preparation: cat === "food" ? 20 : 10,
+      capacity: 5,
+      delivery,
+      shippingFee: delivery ? (cat === "studio" ? 3500 : 3000) : 0,
+      freeShippingMin: delivery ? 30000 : 0,
+      shippingLead: [
+        "주문 후 1~2일 내 발송 (데모)",
+        "Ships in 1–2 days (demo)",
+        "下单后1~2天内发货（演示）",
+        "注文後1〜2日以内に発送（デモ）",
+      ],
+      vouchers,
+      menu: menus[cat].names.map((n, j) => ({
+        id: `s${i + 1}m${j + 1}`,
+        name: n,
+        price: menus[cat].prices[j],
+        description: menus[cat].des,
+        soldOut: i === 5 && j === 2,
+        options:
+          j === 0
+            ? [
+                {
+                  id: "basic",
+                  name: ["기본", "Standard", "标准", "基本"],
+                  price: 0,
+                },
+                {
+                  id: "extra",
+                  name:
+                    cat === "food"
+                      ? ["밥 추가", "Extra rice", "加米饭", "ご飯追加"]
+                      : cat === "cafe"
+                        ? ["샷 추가", "Extra shot", "加浓缩", "ショット追加"]
+                        : [
+                            "선물 포장",
+                            "Gift wrapping",
+                            "礼品包装",
+                            "ギフト包装",
+                          ],
+                  price: 1000,
+                },
+              ]
+            : [],
+      })),
+      rate: i % 3 === 0 ? 3 : 2,
+      pointCap: 2000,
+      campaignCap: 100000,
+      pointMin: 5000,
+      pointExpiry: 365,
+      stackPoints: true,
+      mission: i !== 9 && i !== 14,
+      verified: "2026-10-27",
+    };
+  });
+  return {
+    version: 3,
+    stores,
+    coupons: [0, 1, 2, 4, 5, 6, 10, 11].map((i, j) => ({
+      id: `c${j + 1}`,
+      storeId: stores[i].id,
+      title: [
+        "골목에서 만나는 첫 혜택",
+        "Your first alley perk",
+        "小巷初见礼",
+        "路地のはじめて特典",
+      ],
+      amount: i === 0 ? 2000 : 1000,
+      min: i === 0 ? 12000 : 5000,
+      start: "2026-10-01",
+      end: "2026-12-31",
+      from: "10:00",
+      to: "22:00",
+      quantity: 100,
+      excluded: "",
+      stack: true,
+      template: 0,
+    })),
+    couponIssues: [],
+    orders: [],
+    payments: [],
+    conversations: [],
+    ledger: [
+      {
+        id: "welcome-s1",
+        storeId: "s1",
+        amount: 800,
+        kind: "welcome",
+        createdAt: "2026-10-01T00:00:00+09:00",
+        expiresAt: "2027-10-01",
+      },
+      {
+        id: "welcome-s2",
+        storeId: "s2",
+        amount: 350,
+        kind: "welcome",
+        createdAt: "2026-10-01T00:00:00+09:00",
+        expiresAt: "2027-10-01",
+      },
+    ],
+    voucherLedger: [
+      {
+        id: "v-init-seongdong",
+        voucherId: "seongdong",
+        amount: 30000,
+        kind: "charge",
+        createdAt: "2026-10-01T00:00:00+09:00",
+      },
+      {
+        id: "v-init-seoul",
+        voucherId: "seoul",
+        amount: 20000,
+        kind: "charge",
+        createdAt: "2026-10-01T00:00:00+09:00",
+      },
+      {
+        id: "v-init-onnuri",
+        voucherId: "onnuri",
+        amount: 15000,
+        kind: "charge",
+        createdAt: "2026-10-01T00:00:00+09:00",
+      },
+      {
+        id: "v-init-gyeonggi",
+        voucherId: "gyeonggi",
+        amount: 10000,
+        kind: "charge",
+        createdAt: "2026-10-01T00:00:00+09:00",
+      },
+      {
+        id: "v-init-busan",
+        voucherId: "busan",
+        amount: 10000,
+        kind: "charge",
+        createdAt: "2026-10-01T00:00:00+09:00",
+      },
+    ],
+    saved: [],
+    cart: null,
+    lang: "ko",
+    clock: "lunch",
+    missionRewards: {},
+  };
 }
-export function loadState():State {try{const raw=localStorage.getItem('golmok-demo-v3');if(raw){const s=JSON.parse(raw);if(s.version===3&&Array.isArray(s.stores)&&s.stores.length===15&&Array.isArray(s.ledger)&&Array.isArray(s.orders)){const init=initialState();const defaults=init.stores;s.stores=s.stores.map((st:Store,i:number)=>({...defaults[i],...st,delivery:st.delivery??defaults[i].delivery,shippingFee:st.shippingFee??defaults[i].shippingFee,freeShippingMin:st.freeShippingMin??defaults[i].freeShippingMin,shippingLead:st.shippingLead??defaults[i].shippingLead,vouchers:st.vouchers??defaults[i].vouchers}));if(!Array.isArray(s.voucherLedger))s.voucherLedger=init.voucherLedger;return s;}}}catch{}return initialState();}
+export function loadState(): State {
+  try {
+    const raw = localStorage.getItem("golmok-demo-v3");
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (
+        s.version === 3 &&
+        Array.isArray(s.stores) &&
+        s.stores.length === 15 &&
+        Array.isArray(s.ledger) &&
+        Array.isArray(s.orders)
+      ) {
+        const init = initialState();
+        const defaults = init.stores;
+        s.stores = s.stores.map((st: Store, i: number) => ({
+          ...defaults[i],
+          ...st,
+          delivery: st.delivery ?? defaults[i].delivery,
+          shippingFee: st.shippingFee ?? defaults[i].shippingFee,
+          freeShippingMin: st.freeShippingMin ?? defaults[i].freeShippingMin,
+          shippingLead: st.shippingLead ?? defaults[i].shippingLead,
+          vouchers: st.vouchers ?? defaults[i].vouchers,
+        }));
+        if (!Array.isArray(s.voucherLedger))
+          s.voucherLedger = init.voucherLedger;
+        return s;
+      }
+    }
+  } catch {}
+  return initialState();
+}

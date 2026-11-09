@@ -8,5 +8,9 @@ test-results/
 playwright-report/
 desktop-preview.png
 mobile-preview.png
+admin-preview.png
+redesign-desktop.png
+redesign-mobile.png
+membership-preview.png
 .DS_Store
 Thumbs.db

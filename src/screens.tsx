@@ -1,29 +1,1253 @@
-import {useState,useRef,useEffect} from 'react';
-import {ArrowUpRight,ArrowRight,MessageCircle,Send,CheckCheck,Clock,Ticket,Sparkles,Compass,Flag,Lock,Check,ChevronRight,Heart,Settings2,RotateCcw,MapPin,ShoppingBag,Store as StoreIcon,Truck,Plus,Search,Wallet} from 'lucide-react';
-import {useApp} from './context';
-import {type Order,type Conversation,type Message,type Lang,type Category,type VoucherId,categories,regionalVouchers,voucherBalance,chargeVoucher,transitionOrder,quickQuestions,quickReplies,translate,balance,missionProgress,missions,nowFor,kst,clockNames,pickupSlots,text} from './domain';
-import {Empty,Modal,Photo,CouponCard,Status} from './components';
-import {RegularButton} from './RegularButton';
-import {won} from './i18n';
-export function OrderCard({order,merchant=false}:{order:Order;merchant?:boolean}){const {state,setState,tr,tx,lang,openChat,confirm,toast}=useApp();const [expanded,setExpanded]=useState(false);const [change,setChange]=useState(false);const [newTime,setNewTime]=useState('');const store=state.stores.find(s=>s.id===order.storeId)!;const payment=state.payments.find(p=>p.orderId===order.id);const update=(status:Parameters<typeof transitionOrder>[2])=>{setState(s=>transitionOrder(s,order.id,status));toast(tr('updated'));};const slots=pickupSlots(store,nowFor(state.clock));const terminal=['cancelled','rejected','refunded'].includes(order.status);const statusLabel=(key:string)=>order.mode==='delivery'&&key==='ready'?tr('shipped'):tr(key);return <article className="order-card"><div className="order-card-top"><Photo store={store}/><div><span className="eyebrow">{order.id}</span><h3>{tx(store.name)}</h3><small>{order.createdAt.slice(0,10)} · {tr(order.mode==='pickup'?'takeaway':order.mode==='delivery'?'parcelOrder':'table')}{order.table?` ${order.table}`:''}</small></div><span className={`order-status ${terminal?'negative':''} ${order.status==='completed'?'success':''}`}>{statusLabel(order.status)}</span></div><div className="order-summary-line"><span>{order.items.map(i=>`${tx(i.name)} ×${i.quantity}`).join(', ')}</span><strong>{won(order.total,lang)}</strong></div>{!terminal&&<div className="order-progress">{['requested','accepted','preparing','ready','completed'].map((key,i)=><div key={key} className={['requested','accepted','preparing','ready','completed'].indexOf(order.status)>=i?'done':''}><span>{['requested','accepted','preparing','ready','completed'].indexOf(order.status)>i?<Check size={11}/>:i+1}</span><small>{statusLabel(key)}</small></div>)}</div>}<div className="order-payment-state"><span className="demo-pill">DEMO</span>{tr(payment?.status==='demo_refunded'?'demoRefunded':'demoPaid')} · {tr('noRealPayment')}</div>{order.mode==='pickup'&&order.pickupAt!=='table-04'&&<p className="fine-print"><Clock size={13}/> {tr('pickupTime')} {order.pickupAt.slice(11,16)}</p>}{order.mode==='delivery'&&order.shippingAddress&&<div className="order-shipping"><p><Truck size={13}/> <b>{order.shippingAddress.recipient}</b> · {order.shippingAddress.phone}</p><small>[{order.shippingAddress.postcode}] {order.shippingAddress.address} {order.shippingAddress.detail}</small>{order.trackingNumber&&<span className="tracking-pill">{tr('trackingNumber')} : {order.trackingNumber}</span>}</div>}{order.request&&<div className="order-request"><b>{tr('request')}</b><p>{order.request}</p><span>{translate(order.request,'ko')??tr('unsupported')}</span><small>{tr('allergy')}</small></div>}<button className="text-button" onClick={()=>setExpanded(!expanded)}>{tr('orderDetail')} <ChevronRight size={14}/></button>{expanded&&<dl className="info-list"><div><dt>{tr('subtotal')}</dt><dd>{won(order.subtotal,lang)}</dd></div>{order.mode==='delivery'&&<div><dt>{tr('shippingFee')}</dt><dd>{(order.shippingFee??0)===0?tr('freeShipping'):won(order.shippingFee??0,lang)}</dd></div>}<div><dt>{tr('discount')}</dt><dd>−{won(order.discount,lang)}</dd></div><div><dt>{tr('usePoints')}</dt><dd>{order.pointsUsed}P</dd></div>{(order.voucherUsed??0)>0&&<div><dt>{tr('voucherUse')}{order.voucherId?` (${tx(regionalVouchers.find(v=>v.id===order.voucherId)!.name)})`:''}</dt><dd>−{won(order.voucherUsed??0,lang)}</dd></div>}<div><dt>{tr('earn')}</dt><dd>{order.earn}P · {order.policy.rate}%</dd></div>{order.items.map((i,n)=><div key={n}><dt>{tx(i.name)}{i.option&&` · ${tx(i.option)}`}</dt><dd>{won(i.unit,lang)} × {i.quantity}</dd></div>)}</dl>}<div className="order-actions"><button className="secondary" onClick={()=>openChat(store.id,order.id)}><MessageCircle size={16}/>{tr('orderChat')}</button>{merchant&&order.status==='requested'&&<><button className="primary" onClick={()=>update('accepted')}>{tr('accept')}</button><button className="text-button danger" onClick={()=>confirm(tr('reject')+'?',()=>update('rejected'))}>{tr('reject')}</button></>}{merchant&&order.status==='accepted'&&<button className="primary" onClick={()=>update('preparing')}>{tr('prepare')}</button>}{merchant&&order.status==='preparing'&&<button className="primary" onClick={()=>update('ready')}>{tr(order.mode==='delivery'?'shipReady':'markReady')}</button>}{order.status==='ready'&&<button className="primary" onClick={()=>update('completed')}>{tr(order.mode==='delivery'?'confirmDelivery':'complete')}</button>}{['requested','accepted'].includes(order.status)&&!merchant&&<><button className="text-button" onClick={()=>confirm(tr('cancel')+'?',()=>update('cancelled'))}>{tr('cancel')}</button>{order.mode==='pickup'&&<button className="text-button" onClick={()=>setChange(true)}>{tr('changeOrder')}</button>}</>}{order.status==='completed'&&<button className="text-button" onClick={()=>confirm(tr('refund')+'?',()=>update('refunded'))}>{tr('refund')}</button>}</div>{change&&<Modal title={tr('changeOrder')} onClose={()=>setChange(false)}><div className="modal-body"><p>{tr('chatNotice')}</p><label className="field"><span>{tr('pickupTime')}</span><select value={newTime} onChange={e=>setNewTime(e.target.value)}><option value="">—</option>{slots.map(s=><option key={s} value={s}>{s.slice(11,16)}</option>)}</select></label><button className="primary full" disabled={!newTime} onClick={()=>{if(!slots.includes(newTime)||state.orders.filter(o=>o.storeId===store.id&&o.pickupAt===newTime&&!['cancelled','rejected','refunded'].includes(o.status)).length>=store.capacity){toast(tr('orderLimit'));return;}setState(s=>({...s,orders:s.orders.map(o=>o.id===order.id&&['requested','accepted'].includes(o.status)?{...o,pickupAt:newTime}:o)}));setChange(false);toast(tr('updated'));}}>{tr('confirm')}</button></div></Modal>}</article>;}
-export function MallScreen(){
- const {state,tr,tx,lang,openStore,addCart,openCheckout}=useApp();const [cat,setCat]=useState<Category|'all'>('all');const [q,setQ]=useState('');const [options,setOptions]=useState<Record<string,string>>({});
- const stores=state.stores.filter(s=>s.delivery&&(cat==='all'||s.category===cat)&&(!q||[...s.name,...s.tags,...s.menu.flatMap(m=>m.name)].some(v=>v.toLowerCase().includes(q.toLowerCase()))));
- return <div className="page-content mall-page"><div className="mall-hero"><div><span className="eyebrow">성수역 골목형 상점가 · ONLINE SELECT SHOP</span><h1>{tr('mallTitle')}</h1><p>{tr('mallSub')}</p><div className="mall-hero-badges"><span><Truck size={14}/>{tr('delivery24h')}</span><span><Sparkles size={14}/>₩30,000 {tr('freeShippingFrom')}</span></div></div><div className="mall-search-bar"><Search size={18}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder={tr('search')} aria-label={tr('search')}/></div></div>
- <div className="category-filters mall-categories"><button className={cat==='all'?'active':''} onClick={()=>setCat('all')}>{tr('all')} ({state.stores.filter(s=>s.delivery).length})</button>{Object.entries(categories).map(([id,label])=>{const count=state.stores.filter(s=>s.delivery&&s.category===id).length;if(!count)return null;return <button key={id} className={cat===id?'active':''} onClick={()=>setCat(id as Category)}>{tx(label)} ({count})</button>;})}</div>
- {stores.length?<div className="mall-store-list">{stores.map(store=><section key={store.id} className="mall-store-card"><header className="mall-store-head"><div className="mall-store-info" onClick={()=>openStore(store.id)} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter')openStore(store.id);}}><Photo store={store}/><div><span className="eyebrow">{tx(categories[store.category])} · <Truck size={12}/> {tr('delivery')}</span><h2>{tx(store.name)}</h2><p>{tx(store.description)} · {tr('shippingFee')} {won(store.shippingFee??3000,lang)} ({won(store.freeShippingMin??30000,lang)} {tr('freeShippingFrom')})</p></div></div><div className="mall-store-actions"><RegularButton store={store} compact/><button className="secondary" onClick={()=>openStore(store.id)}>{tr('details')}<ArrowUpRight size={15}/></button></div></header><div className="mall-products-grid">{store.menu.map((m,i)=><article key={m.id} className={`mall-product ${m.soldOut?'sold-out':''}`}><div className="mall-product-top"><div className={`menu-art art-${store.category}-${i}`}><span>{store.category==='food'?['🍲','🥗','🍋'][i]:store.category==='cafe'?['☕','🥤','🥐'][i]:store.category==='shop'?['🍵','📒','🛍️'][i]:store.category==='studio'?['🏺','🪡','💌'][i]:['🖼️','✦','👜'][i]}</span></div><div><h3>{tx(m.name)}</h3><p>{tx(m.description)}</p><strong>{won(m.price,lang)}</strong></div></div>{m.options.length>0&&<select aria-label={`${tx(m.name)} options`} value={options[m.id]??m.options[0].id} onChange={e=>setOptions(o=>({...o,[m.id]:e.target.value}))}>{m.options.map(o=><option key={o.id} value={o.id}>{tx(o.name)}{o.price?` +${won(o.price,lang)}`:''}</option>)}</select>}<button className="primary full" disabled={m.soldOut} onClick={()=>addCart(store,'delivery',m.id,options[m.id]??m.options[0]?.id??'')}>{m.soldOut?tr('soldOut'):<><Truck size={15}/>{tr('orderDelivery')} · {tr('add')}</>}</button></article>)}</div></section>)}</div>:<Empty title={tr('noResults')}/>}
- {state.cart?.mode==='delivery'&&state.cart.items.length>0&&<div className="mall-cart-bar"><span><Truck size={18}/>{tx(state.stores.find(s=>s.id===state.cart!.storeId)!.name)} · {tr('parcelOrder')} ({state.cart.items.reduce((a,b)=>a+b.quantity,0)})</span><button className="primary" onClick={openCheckout}>{tr('checkout')}<ArrowRight size={16}/></button></div>}</div>;
+import { useState, useRef, useEffect } from "react";
+import {
+  ArrowUpRight,
+  ArrowRight,
+  MessageCircle,
+  Send,
+  CheckCheck,
+  Clock,
+  Ticket,
+  Sparkles,
+  Compass,
+  Flag,
+  Lock,
+  Check,
+  ChevronRight,
+  Heart,
+  Settings2,
+  RotateCcw,
+  MapPin,
+  ShoppingBag,
+  Store as StoreIcon,
+  Truck,
+  Plus,
+  Search,
+  Wallet,
+} from "lucide-react";
+import { useApp } from "./context";
+import {
+  type Order,
+  type Conversation,
+  type Message,
+  type Lang,
+  type Category,
+  type VoucherId,
+  categories,
+  regionalVouchers,
+  voucherBalance,
+  chargeVoucher,
+  transitionOrder,
+  quickQuestions,
+  quickReplies,
+  translate,
+  balance,
+  missionProgress,
+  missions,
+  nowFor,
+  kst,
+  clockNames,
+  pickupSlots,
+  text,
+} from "./domain";
+import { Empty, Modal, Photo, CouponCard, Status } from "./components";
+import { RegularButton } from "./RegularButton";
+import { won } from "./i18n";
+import {authConfigured,readSession,translateWithServer} from './services';
+export function OrderCard({
+  order,
+  merchant = false,
+}: {
+  order: Order;
+  merchant?: boolean;
+}) {
+  const { state, setState, tr, tx, lang, openChat, confirm, toast } = useApp();
+  const [expanded, setExpanded] = useState(false);
+  const [change, setChange] = useState(false);
+  const [newTime, setNewTime] = useState("");
+  const store = state.stores.find((s) => s.id === order.storeId)!;
+  const payment = state.payments.find((p) => p.orderId === order.id);
+  const update = (status: Parameters<typeof transitionOrder>[2]) => {
+    setState((s) => transitionOrder(s, order.id, status));
+    toast(tr("updated"));
+  };
+  const slots = pickupSlots(store, nowFor(state.clock));
+  const terminal = ["cancelled", "rejected", "refunded"].includes(order.status);
+  const statusLabel = (key: string) =>
+    order.mode === "delivery" && key === "ready" ? tr("shipped") : tr(key);
+  return (
+    <article className="order-card">
+      <div className="order-card-top">
+        <Photo store={store} />
+        <div>
+          <span className="eyebrow">{order.id}</span>
+          <h3>{tx(store.name)}</h3>
+          <small>
+            {order.createdAt.slice(0, 10)} ·{" "}
+            {tr(
+              order.mode === "pickup"
+                ? "takeaway"
+                : order.mode === "delivery"
+                  ? "parcelOrder"
+                  : "table",
+            )}
+            {order.table ? ` ${order.table}` : ""}
+          </small>
+        </div>
+        <span
+          className={`order-status ${terminal ? "negative" : ""} ${order.status === "completed" ? "success" : ""}`}
+        >
+          {statusLabel(order.status)}
+        </span>
+      </div>
+      <div className="order-summary-line">
+        <span>
+          {order.items.map((i) => `${tx(i.name)} ×${i.quantity}`).join(", ")}
+        </span>
+        <strong>{won(order.total, lang)}</strong>
+      </div>
+      {!terminal && (
+        <div className="order-progress">
+          {["requested", "accepted", "preparing", "ready", "completed"].map(
+            (key, i) => (
+              <div
+                key={key}
+                className={
+                  [
+                    "requested",
+                    "accepted",
+                    "preparing",
+                    "ready",
+                    "completed",
+                  ].indexOf(order.status) >= i
+                    ? "done"
+                    : ""
+                }
+              >
+                <span>
+                  {[
+                    "requested",
+                    "accepted",
+                    "preparing",
+                    "ready",
+                    "completed",
+                  ].indexOf(order.status) > i ? (
+                    <Check size={11} />
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <small>{statusLabel(key)}</small>
+              </div>
+            ),
+          )}
+        </div>
+      )}
+      <div className="order-payment-state">
+        <span className="demo-pill">DEMO</span>
+        {tr(
+          payment?.status === "demo_refunded" ? "demoRefunded" : "demoPaid",
+        )}{" "}
+        · {tr("noRealPayment")}
+      </div>
+      {order.mode === "pickup" && order.pickupAt !== "table-04" && (
+        <p className="fine-print">
+          <Clock size={13} /> {tr("pickupTime")} {order.pickupAt.slice(11, 16)}
+        </p>
+      )}
+      {order.mode === "delivery" && order.shippingAddress && (
+        <div className="order-shipping">
+          <p>
+            <Truck size={13} /> <b>{order.shippingAddress.recipient}</b> ·{" "}
+            {order.shippingAddress.phone}
+          </p>
+          <small>
+            [{order.shippingAddress.postcode}] {order.shippingAddress.address}{" "}
+            {order.shippingAddress.detail}
+          </small>
+          {order.trackingNumber && (
+            <span className="tracking-pill">
+              {tr("trackingNumber")} : {order.trackingNumber}
+            </span>
+          )}
+        </div>
+      )}
+      {order.request && (
+        <div className="order-request">
+          <b>{tr("request")}</b>
+          <p>{order.request}</p>
+          <span>{translate(order.request, "ko") ?? tr("unsupported")}</span>
+          <small>{tr("allergy")}</small>
+        </div>
+      )}
+      <button className="text-button" onClick={() => setExpanded(!expanded)}>
+        {tr("orderDetail")} <ChevronRight size={14} />
+      </button>
+      {expanded && (
+        <dl className="info-list">
+          <div>
+            <dt>{tr("subtotal")}</dt>
+            <dd>{won(order.subtotal, lang)}</dd>
+          </div>
+          {order.mode === "delivery" && (
+            <div>
+              <dt>{tr("shippingFee")}</dt>
+              <dd>
+                {(order.shippingFee ?? 0) === 0
+                  ? tr("freeShipping")
+                  : won(order.shippingFee ?? 0, lang)}
+              </dd>
+            </div>
+          )}
+          <div>
+            <dt>{tr("discount")}</dt>
+            <dd>−{won(order.discount, lang)}</dd>
+          </div>
+          <div>
+            <dt>{tr("usePoints")}</dt>
+            <dd>{order.pointsUsed}P</dd>
+          </div>
+          {(order.voucherUsed ?? 0) > 0 && (
+            <div>
+              <dt>
+                {tr("voucherUse")}
+                {order.voucherId
+                  ? ` (${tx(regionalVouchers.find((v) => v.id === order.voucherId)!.name)})`
+                  : ""}
+              </dt>
+              <dd>−{won(order.voucherUsed ?? 0, lang)}</dd>
+            </div>
+          )}
+          <div>
+            <dt>{tr("earn")}</dt>
+            <dd>
+              {order.earn}P · {order.policy.rate}%
+            </dd>
+          </div>
+          {order.items.map((i, n) => (
+            <div key={n}>
+              <dt>
+                {tx(i.name)}
+                {i.option && ` · ${tx(i.option)}`}
+              </dt>
+              <dd>
+                {won(i.unit, lang)} × {i.quantity}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <div className="order-actions">
+        <button
+          className="secondary"
+          onClick={() => openChat(store.id, order.id)}
+        >
+          <MessageCircle size={16} />
+          {tr("orderChat")}
+        </button>
+        {merchant && order.status === "requested" && (
+          <>
+            <button className="primary" onClick={() => update("accepted")}>
+              {tr("accept")}
+            </button>
+            <button
+              className="text-button danger"
+              onClick={() =>
+                confirm(tr("reject") + "?", () => update("rejected"))
+              }
+            >
+              {tr("reject")}
+            </button>
+          </>
+        )}
+        {merchant && order.status === "accepted" && (
+          <button className="primary" onClick={() => update("preparing")}>
+            {tr("prepare")}
+          </button>
+        )}
+        {merchant && order.status === "preparing" && (
+          <button className="primary" onClick={() => update("ready")}>
+            {tr(order.mode === "delivery" ? "shipReady" : "markReady")}
+          </button>
+        )}
+        {order.status === "ready" && (
+          <button className="primary" onClick={() => update("completed")}>
+            {tr(order.mode === "delivery" ? "confirmDelivery" : "complete")}
+          </button>
+        )}
+        {["requested", "accepted"].includes(order.status) && !merchant && (
+          <>
+            <button
+              className="text-button"
+              onClick={() =>
+                confirm(tr("cancel") + "?", () => update("cancelled"))
+              }
+            >
+              {tr("cancel")}
+            </button>
+            {order.mode === "pickup" && (
+              <button className="text-button" onClick={() => setChange(true)}>
+                {tr("changeOrder")}
+              </button>
+            )}
+          </>
+        )}
+        {order.status === "completed" && (
+          <button
+            className="text-button"
+            onClick={() =>
+              confirm(tr("refund") + "?", () => update("refunded"))
+            }
+          >
+            {tr("refund")}
+          </button>
+        )}
+      </div>
+      {change && (
+        <Modal title={tr("changeOrder")} onClose={() => setChange(false)}>
+          <div className="modal-body">
+            <p>{tr("chatNotice")}</p>
+            <label className="field">
+              <span>{tr("pickupTime")}</span>
+              <select
+                value={newTime}
+                onChange={(e) => setNewTime(e.target.value)}
+              >
+                <option value="">—</option>
+                {slots.map((s) => (
+                  <option key={s} value={s}>
+                    {s.slice(11, 16)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="primary full"
+              disabled={!newTime}
+              onClick={() => {
+                if (
+                  !slots.includes(newTime) ||
+                  state.orders.filter(
+                    (o) =>
+                      o.storeId === store.id &&
+                      o.pickupAt === newTime &&
+                      !["cancelled", "rejected", "refunded"].includes(o.status),
+                  ).length >= store.capacity
+                ) {
+                  toast(tr("orderLimit"));
+                  return;
+                }
+                setState((s) => ({
+                  ...s,
+                  orders: s.orders.map((o) =>
+                    o.id === order.id &&
+                    ["requested", "accepted"].includes(o.status)
+                      ? { ...o, pickupAt: newTime }
+                      : o,
+                  ),
+                }));
+                setChange(false);
+                toast(tr("updated"));
+              }}
+            >
+              {tr("confirm")}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </article>
+  );
 }
-export function OrdersScreen(){const {state,tr,setTab,openChat,tx}=useApp();const [sub,setSub]=useState('orders');return <div className="page-content"><div className="page-heading"><span className="eyebrow">YOUR LITTLE VISITS</span><h1>{tr('orderHistory')}</h1><p>{tr('noRealPayment')}</p></div><div className="page-tabs"><button className={sub==='orders'?'active':''} onClick={()=>setSub('orders')}>{tr('orderHistory')} <span>{state.orders.length}</span></button><button className={sub==='chat'?'active':''} onClick={()=>setSub('chat')}>{tr('chats')} <span>{state.conversations.length}</span></button></div>{sub==='orders'?(state.orders.length?<div className="order-grid">{state.orders.map(o=><OrderCard key={o.id} order={o}/>)}</div>:<Empty title={tr('noOrders')}><button className="primary" onClick={()=>setTab('map')}>{tr('goExplore')}<ArrowRight size={17}/></button></Empty>):state.conversations.length?<div className="conversation-list">{state.conversations.map(c=>{const store=state.stores.find(s=>s.id===c.storeId)!;return <button key={c.id} onClick={()=>openChat(c.storeId,c.orderId)}><Photo store={store}/><div><h3>{tx(store.name)}</h3><small>{c.orderId??tr('inquiry')}</small><p>{c.messages.at(-1)?.original??tr('message')}</p></div><ChevronRight size={18}/></button>;})}</div>:<Empty title={tr('noChats')}><button className="primary" onClick={()=>setTab('map')}>{tr('goExplore')}</button></Empty>}</div>;}
-export function Chat({conversation,onClose}:{conversation:Conversation;onClose:()=>void}){const {state,setState,owner,tr,tx,lang}=useApp();const [input,setInput]=useState('');const [originals,setOriginals]=useState<string[]>([]);const messagesEnd=useRef<HTMLDivElement>(null);const store=state.stores.find(s=>s.id===conversation.storeId)!;useEffect(()=>{messagesEnd.current?.scrollIntoView({block:'nearest'});},[conversation.messages.length]);useEffect(()=>{const other=owner?'customer':'owner';if(conversation.messages.some(m=>m.role===other&&!m.read))setState(s=>({...s,conversations:s.conversations.map(c=>c.id===conversation.id?{...c,messages:c.messages.map(m=>m.role===other?{...m,read:true}:m)}:c)}));},[conversation.id,owner,conversation.messages.length]);
- const append=(original:string,role:'customer'|'owner',auto=false)=>{if(!original.trim())return;const translated=translate(original,role==='customer'?'ko':lang);const m:Message={id:crypto.randomUUID(),role,original,translated,status:translated?'translated':'unsupported',read:false,time:new Date().toISOString(),auto};setState(s=>({...s,conversations:s.conversations.map(c=>c.id===conversation.id?{...c,messages:[...c.messages,m]}:c)}));setInput('');};
- return <Modal title={`${tx(store.name)} · ${tr(conversation.orderId?'orderChat':'inquiry')}`} onClose={onClose}><div className="chat-context"><span className="demo-pill">DEMO</span><span>{tr('chatDemo')}</span><small>{conversation.orderId??tr('responseHours')}</small></div><div className="chat-messages">{!conversation.messages.length&&<div className="chat-welcome"><MessageCircle size={28}/><p>{tr('noChats')}</p></div>}{conversation.messages.map(m=>{const mine=m.role===(owner?'owner':'customer');const display=translate(m.original,owner?'ko':lang);return <div key={m.id} className={`message ${mine?'mine':'theirs'}`}><span className="message-sender">{m.role==='owner'?tx(store.name):tr('customer')}{m.auto&&` · ${tr('autoReply')}`}</span><div className="message-bubble"><p>{display??m.original}</p><span className={`translation-state ${!display?'unsupported':''}`}>{display?tr('translated'):tr('unsupported')}</span><button className="text-button" onClick={()=>setOriginals(o=>o.includes(m.id)?o.filter(id=>id!==m.id):[...o,m.id])}>{tr('original')}</button>{originals.includes(m.id)&&<blockquote>{m.original}</blockquote>}</div><small className="message-meta">{new Date(m.time).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'})} · {tr(m.read?'read':'sent')} {m.read&&<CheckCheck size={11}/>}</small></div>;})}<div ref={messagesEnd}/></div><div className="chat-bottom"><div className="quick-questions">{(owner?quickReplies:quickQuestions).map((q,i)=><button key={i} onClick={()=>append(tx(q),owner?'owner':'customer')}>{tx(q)}</button>)}</div><form className="chat-input" onSubmit={e=>{e.preventDefault();append(input,owner?'owner':'customer');}}><input value={input} onChange={e=>setInput(e.target.value)} placeholder={tr('message')} aria-label={tr('message')} maxLength={1000}/><button className="primary" aria-label={tr('send')} disabled={!input.trim()}><Send size={18}/></button></form><div className="chat-notes"><span>{tr('chatNotice')}</span>{!owner&&<button className="text-button" onClick={()=>append('확인하겠습니다.','owner',true)}><Sparkles size={13}/>{tr('autoReply')}</button>}</div><p className="fine-print">{tr('allergy')}</p></div></Modal>;
+export function MallScreen() {
+  const { state, tr, tx, lang, openStore, addCart, openCheckout } = useApp();
+  const [cat, setCat] = useState<Category | "all">("all");
+  const [q, setQ] = useState("");
+  const [options, setOptions] = useState<Record<string, string>>({});
+  const stores = state.stores.filter(
+    (s) =>
+      s.delivery &&
+      (cat === "all" || s.category === cat) &&
+      (!q ||
+        [...s.name, ...s.tags, ...s.menu.flatMap((m) => m.name)].some((v) =>
+          v.toLowerCase().includes(q.toLowerCase()),
+        )),
+  );
+  return (
+    <div className="page-content mall-page">
+      <div className="mall-hero">
+        <div>
+          <span className="eyebrow">
+            성수역 골목형 상점가 · ONLINE SELECT SHOP
+          </span>
+          <h1>{tr("mallTitle")}</h1>
+          <p>{tr("mallSub")}</p>
+          <div className="mall-hero-badges">
+            <span>
+              <Truck size={14} />
+              {tr("delivery24h")}
+            </span>
+            <span>
+              <Sparkles size={14} />
+              ₩30,000 {tr("freeShippingFrom")}
+            </span>
+          </div>
+        </div>
+        <div className="mall-search-bar">
+          <Search size={18} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={tr("search")}
+            aria-label={tr("search")}
+          />
+        </div>
+      </div>
+      <div className="category-filters mall-categories">
+        <button
+          className={cat === "all" ? "active" : ""}
+          onClick={() => setCat("all")}
+        >
+          {tr("all")} ({state.stores.filter((s) => s.delivery).length})
+        </button>
+        {Object.entries(categories).map(([id, label]) => {
+          const count = state.stores.filter(
+            (s) => s.delivery && s.category === id,
+          ).length;
+          if (!count) return null;
+          return (
+            <button
+              key={id}
+              className={cat === id ? "active" : ""}
+              onClick={() => setCat(id as Category)}
+            >
+              {tx(label)} ({count})
+            </button>
+          );
+        })}
+      </div>
+      {stores.length ? (
+        <div className="mall-store-list">
+          {stores.map((store) => (
+            <section key={store.id} className="mall-store-card">
+              <header className="mall-store-head">
+                <div
+                  className="mall-store-info"
+                  onClick={() => openStore(store.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") openStore(store.id);
+                  }}
+                >
+                  <Photo store={store} />
+                  <div>
+                    <span className="eyebrow">
+                      {tx(categories[store.category])} · <Truck size={12} />{" "}
+                      {tr("delivery")}
+                    </span>
+                    <h2>{tx(store.name)}</h2>
+                    <p>
+                      {tx(store.description)} · {tr("shippingFee")}{" "}
+                      {won(store.shippingFee ?? 3000, lang)} (
+                      {won(store.freeShippingMin ?? 30000, lang)}{" "}
+                      {tr("freeShippingFrom")})
+                    </p>
+                  </div>
+                </div>
+                <div className="mall-store-actions">
+                  <RegularButton store={store} compact />
+                  <button
+                    className="secondary"
+                    onClick={() => openStore(store.id)}
+                  >
+                    {tr("details")}
+                    <ArrowUpRight size={15} />
+                  </button>
+                </div>
+              </header>
+              <div className="mall-products-grid">
+                {store.menu.map((m, i) => (
+                  <article
+                    key={m.id}
+                    className={`mall-product ${m.soldOut ? "sold-out" : ""}`}
+                  >
+                    <div className="mall-product-top">
+                      <div className={`menu-art art-${store.category}-${i}`}>
+                        <span>
+                          {store.category === "food"
+                            ? ["🍲", "🥗", "🍋"][i]
+                            : store.category === "cafe"
+                              ? ["☕", "🥤", "🥐"][i]
+                              : store.category === "shop"
+                                ? ["🍵", "📒", "🛍️"][i]
+                                : store.category === "studio"
+                                  ? ["🏺", "🪡", "💌"][i]
+                                  : ["🖼️", "✦", "👜"][i]}
+                        </span>
+                      </div>
+                      <div>
+                        <h3>{tx(m.name)}</h3>
+                        <p>{tx(m.description)}</p>
+                        <strong>{won(m.price, lang)}</strong>
+                      </div>
+                    </div>
+                    {m.options.length > 0 && (
+                      <select
+                        aria-label={`${tx(m.name)} options`}
+                        value={options[m.id] ?? m.options[0].id}
+                        onChange={(e) =>
+                          setOptions((o) => ({ ...o, [m.id]: e.target.value }))
+                        }
+                      >
+                        {m.options.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {tx(o.name)}
+                            {o.price ? ` +${won(o.price, lang)}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      className="primary full"
+                      disabled={m.soldOut}
+                      onClick={() =>
+                        addCart(
+                          store,
+                          "delivery",
+                          m.id,
+                          options[m.id] ?? m.options[0]?.id ?? "",
+                        )
+                      }
+                    >
+                      {m.soldOut ? (
+                        tr("soldOut")
+                      ) : (
+                        <>
+                          <Truck size={15} />
+                          {tr("orderDelivery")} · {tr("add")}
+                        </>
+                      )}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <Empty title={tr("noResults")} />
+      )}
+      {state.cart?.mode === "delivery" && state.cart.items.length > 0 && (
+        <div className="mall-cart-bar">
+          <span>
+            <Truck size={18} />
+            {tx(
+              state.stores.find((s) => s.id === state.cart!.storeId)!.name,
+            )} · {tr("parcelOrder")} (
+            {state.cart.items.reduce((a, b) => a + b.quantity, 0)})
+          </span>
+          <button className="primary" onClick={openCheckout}>
+            {tr("checkout")}
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
-export function MissionsScreen(){const {state,tr,tx,openStore,setTab}=useApp();const progress=missionProgress(state);const ids=progress[0].storeIds;return <div className="page-content"><div className="mission-page-hero"><div><span className="eyebrow">COLLECT MOMENTS, NOT MILES</span><h1>{tr('missionTitle')}</h1><p>{tr('missionSub')}</p></div><div className="mission-illustration"><Compass size={86} strokeWidth={1}/><span>SEONGSU<br/>EXPLORER</span></div></div><div className="mission-stats"><div><b>{ids.length}<small> / 15</small></b><span>{tr('completedStores')}</span></div><div><b>{Object.values(state.missionRewards).reduce((a,n)=>a+n,0).toLocaleString()}<small>P</small></b><span>{tr('campaignPoints')}</span></div><button className="secondary" onClick={()=>{sessionStorage.setItem('mission-filter','true');setTab('map');}}>{tr('seeTargets')}<ArrowUpRight size={17}/></button></div><div className="mission-grid">{missions.map((m,i)=><article className={`mission-card ${m.upcoming?'upcoming':''} ${progress[i].complete?'finished':''}`} key={m.id}><div className="mission-card-top"><span className="mission-number">{m.upcoming?<Lock size={22}/>:progress[i].complete?<Check size={25}/>:<Flag size={24}/>}</span><span className="tiny-label">{m.upcoming?'COMING SOON':`CHAPTER 0${i+1}`}</span></div><h2>{i===0?tr('explore5'):i===1?tr('explore10'):`${tr('national')} ${m.target.toLocaleString()}`}</h2><p>{m.upcoming?tr('upcomingMission'):tr('missionRule')}</p>{!m.upcoming&&<><div className="mission-progress-bar"><span style={{width:`${Math.min(100,ids.length/m.target*100)}%`}}/></div><div className="mission-progress-text"><b>{Math.min(ids.length,m.target)} / {m.target}</b><span>{progress[i].complete?'🏅 SEONGSU EXPLORER':tr('completedStores')}</span></div><div className="mission-reward"><Sparkles size={17}/><span>{tr('campaignPoints')}</span><b>+{m.reward.toLocaleString()}P</b></div></>}{m.upcoming&&<div className="locked-line"><Lock size={14}/>{tr('readonlyUpcoming')}</div>}</article>)}</div><div className="mission-terms"><h4>{tr('conditions')}</h4><p>{tr('missionRule')} · 2026.10.01–12.31 · {tr('missionRewardNotice')}</p><p>{tx(['취소·환불 시 재계산 · 같은 매장 반복 구매는 1곳 · 0원 주문 제외','Recalculated on cancellations/refunds · one count per store · excludes zero-total orders','取消退款后重新计算 · 每家店铺计一次 · 不含零元订单','取消・返金時に再計算・同じ店舗は1件・0ウォン注文対象外'])}</p></div><div className="section-heading"><h2>{tr('unvisited')}</h2><span>{state.stores.filter(s=>s.mission&&!ids.includes(s.id)).length}</span></div><div className="mini-store-grid">{state.stores.filter(s=>s.mission).map(s=><button className="mini-store" key={s.id} onClick={()=>openStore(s.id)}><Photo store={s}/><div><h4>{tx(s.name)}</h4><small>{ids.includes(s.id)?`✓ ${tr('explored')}`:`◎ ${tr('target')}`}</small></div><ChevronRight size={17}/></button>)}</div></div>;}
-export function MyScreen({onReset,onMapError}:{onReset:()=>void;onMapError:()=>void}){const {state,setState,lang,tr,tx,openStore,toast}=useApp();const [sub,setSub]=useState('vouchers');return <div className="page-content"><div className="page-heading"><span className="eyebrow">YOUR NEIGHBORHOOD, YOUR PERKS</span><h1>{tr('myTitle')}</h1><p>{tr('pointNotice')}</p></div><div className="profile-card"><div className="profile-avatar">g<span>g</span></div><div><h3>{tx(['골목 탐험가','Neighborhood explorer','小巷探索家','路地の探検家'])}</h3><p>{tr('demoLoginNote')}</p></div><button className="kakao-demo" onClick={()=>toast(tr('demoSaved'))}><MessageCircle size={16}/>{tr('demoLogin')}</button></div><div className="page-tabs">{[['vouchers',<Wallet size={16}/>],['points',<Sparkles size={16}/>],['coupon',<Ticket size={16}/>],['savedPlaces',<Heart size={16}/>],['settings',<Settings2 size={16}/>]].map(([key,icon])=><button key={key as string} className={sub===key?'active':''} onClick={()=>setSub(key as string)}>{icon}{tr(key as string)}</button>)}</div>
- {sub==='vouchers'&&<><h3>{tr('voucherWallet')}</h3><p className="fine-print">{tr('voucherNotice')}</p><div className="voucher-wallet-grid">{regionalVouchers.map(v=>{const storesCount=state.stores.filter(s=>(s.vouchers??[]).includes(v.id)).length;return <article key={v.id} className={`voucher-card voucher-${v.id}`}><div className="voucher-card-top"><div><span className="eyebrow">{tx(v.region)}</span><h3>{tx(v.name)}</h3></div><Wallet size={21}/></div><strong>{won(voucherBalance(state,v.id),lang)}</strong><p>{tx(v.desc)} · {storesCount} {tr('results')}</p><div className="voucher-card-actions"><button className="secondary" onClick={()=>{setState(s=>chargeVoucher(s,v.id,10000));toast(`${tx(v.name)} · ${tr('voucherCharged')}`);}}><Plus size={14}/>{tr('voucherCharge')}</button></div></article>;})}</div><h3>{tr('voucherLedger')}</h3><div className="ledger-list">{[...(state.voucherLedger??[])].reverse().map(l=>{const v=regionalVouchers.find(item=>item.id===l.voucherId)!;const store=l.storeId?state.stores.find(s=>s.id===l.storeId):undefined;return <div className="ledger-entry" key={l.id}><span className={`ledger-icon ${l.amount<0?'minus':''}`}><Wallet size={17}/></span><div><b>{tx(v.name)}{store?` · ${tx(store.name)}`:''} · {tr(l.kind)}</b><small>{l.createdAt.slice(0,10)}{l.orderId&&` · ${l.orderId}`}</small></div><strong className={l.amount>0?'positive':''}>{l.amount>0?'+':'−'}{won(Math.abs(l.amount),lang)}</strong></div>;})}</div></>}
- {sub==='points'&&<><h3>{tr('storePoints')}</h3><div className="wallet-grid">{state.stores.filter(s=>balance(state,s.id)>0||state.ledger.some(l=>l.storeId===s.id)).map(s=><button className="wallet-card" key={s.id} onClick={()=>openStore(s.id)}><span><StoreIcon size={18}/>{tx(s.name)}</span><strong>{balance(state,s.id).toLocaleString()}<small>P</small></strong><p>{tr('pointsCondition')} {won(s.pointMin,lang)}<ChevronRight size={15}/></p></button>)}</div><h3>{tr('ledger')}</h3><div className="ledger-list">{[...state.ledger].reverse().map(l=><div className="ledger-entry" key={l.id}><span className={`ledger-icon ${l.amount<0?'minus':''}`}><Sparkles size={17}/></span><div><b>{tx(state.stores.find(s=>s.id===l.storeId)!.name)} · {tr(l.kind==='earn'?'earn':l.kind)}</b><small>{l.createdAt.slice(0,10)}{l.orderId&&` · ${l.orderId}`}{l.expiresAt&&` · ${tr('expiry')} ${l.expiresAt}`}</small></div><strong className={l.amount>0?'positive':''}>{l.amount>0?'+':''}{l.amount}P</strong></div>)}</div></>}
- {sub==='coupon'&&<div className="coupons-grid">{state.coupons.map(c=><div key={c.id}><button className="text-button" onClick={()=>openStore(c.storeId)}>{tx(state.stores.find(s=>s.id===c.storeId)!.name)}<ArrowUpRight size={14}/></button><CouponCard coupon={c}/></div>)}</div>}
- {sub==='savedPlaces'&&<section className="regular-section"><div className="regular-heading"><div><h3><Heart size={19}/>{tr('regularCount')} <span>{state.stores.filter(s=>state.saved.includes(s.id)).length}</span></h3><p>{tr('regularIntro')}</p></div></div>{state.saved.length?<div className="regular-grid">{state.stores.filter(s=>state.saved.includes(s.id)).map(s=><article key={s.id} className="regular-card"><button className="regular-store-link" onClick={()=>openStore(s.id)} aria-label={`${tx(s.name)} ${tr('details')}`}><Photo store={s}/><div><h3>{tx(s.name)}</h3><Status store={s} detail/><p>{tx(s.description)}</p></div><ChevronRight size={17}/></button><div className="regular-card-footer"><span><Sparkles size={13}/>{s.rate}% {tr('earn')}</span><RegularButton store={s} compact/></div></article>)}</div>:<Empty title={tr('noSaved')}><button className="primary" onClick={()=>openStore('s1')}>{tr('goExplore')}<ArrowUpRight size={16}/></button></Empty>}</section>}
- {sub==='settings'&&<div className="settings-card"><h3><Clock size={20}/>{tr('clock')}</h3><p>{tr('timeNotice')}</p><div className="clock-options">{Object.entries(clockNames).map(([id,label])=><button className={state.clock===id?'selected':''} key={id} onClick={()=>setState(s=>({...s,clock:id}))}>{tx(label)}</button>)}</div><p className="inline-info">{state.clock==='real'?'KST':tr('demoTime')} · {kst(nowFor(state.clock)).date}</p><hr/><h3>{tr('settings')}</h3><p>{tr('notRealServices')}</p><div className="settings-actions"><button className="secondary" onClick={onMapError}><MapPin size={17}/>{tr('testError')}</button><button className="secondary danger" onClick={onReset}><RotateCcw size={16}/>{tr('reset')}</button></div><small>localStorage · schema v3</small></div>}
- </div>;}
+export function OrdersScreen() {
+  const { state, tr, setTab, openChat, tx } = useApp();
+  const [sub, setSub] = useState("orders");
+  return (
+    <div className="page-content">
+      <div className="page-heading">
+        <span className="eyebrow">YOUR LITTLE VISITS</span>
+        <h1>{tr("orderHistory")}</h1>
+        <p>{tr("noRealPayment")}</p>
+      </div>
+      <div className="page-tabs">
+        <button
+          className={sub === "orders" ? "active" : ""}
+          onClick={() => setSub("orders")}
+        >
+          {tr("orderHistory")} <span>{state.orders.length}</span>
+        </button>
+        <button
+          className={sub === "chat" ? "active" : ""}
+          onClick={() => setSub("chat")}
+        >
+          {tr("chats")} <span>{state.conversations.length}</span>
+        </button>
+      </div>
+      {sub === "orders" ? (
+        state.orders.length ? (
+          <div className="order-grid">
+            {state.orders.map((o) => (
+              <OrderCard key={o.id} order={o} />
+            ))}
+          </div>
+        ) : (
+          <Empty title={tr("noOrders")}>
+            <button className="primary" onClick={() => setTab("map")}>
+              {tr("goExplore")}
+              <ArrowRight size={17} />
+            </button>
+          </Empty>
+        )
+      ) : state.conversations.length ? (
+        <div className="conversation-list">
+          {state.conversations.map((c) => {
+            const store = state.stores.find((s) => s.id === c.storeId)!;
+            return (
+              <button key={c.id} onClick={() => openChat(c.storeId, c.orderId)}>
+                <Photo store={store} />
+                <div>
+                  <h3>{tx(store.name)}</h3>
+                  <small>{c.orderId ?? tr("inquiry")}</small>
+                  <p>{c.messages.at(-1)?.original ?? tr("message")}</p>
+                </div>
+                <ChevronRight size={18} />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <Empty title={tr("noChats")}>
+          <button className="primary" onClick={() => setTab("map")}>
+            {tr("goExplore")}
+          </button>
+        </Empty>
+      )}
+    </div>
+  );
+}
+export function Chat({
+  conversation,
+  onClose,
+}: {
+  conversation: Conversation;
+  onClose: () => void;
+}) {
+  const { state, setState, owner, tr, tx, lang } = useApp();
+  const [input, setInput] = useState("");
+  const [originals, setOriginals] = useState<string[]>([]);
+  const messagesEnd = useRef<HTMLDivElement>(null);
+  const store = state.stores.find((s) => s.id === conversation.storeId)!;
+  useEffect(() => {
+    messagesEnd.current?.scrollIntoView({ block: "nearest" });
+  }, [conversation.messages.length]);
+  useEffect(() => {
+    const other = owner ? "customer" : "owner";
+    if (conversation.messages.some((m) => m.role === other && !m.read))
+      setState((s) => ({
+        ...s,
+        conversations: s.conversations.map((c) =>
+          c.id === conversation.id
+            ? {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.role === other ? { ...m, read: true } : m,
+                ),
+              }
+            : c,
+        ),
+      }));
+  }, [conversation.id, owner, conversation.messages.length]);
+  const append = (
+    original: string,
+    role: "customer" | "owner",
+    auto = false,
+  ) => {
+    if (!original.trim()) return;
+    const translated = translate(original, role === "customer" ? "ko" : lang);
+    const m: Message = {
+      id: crypto.randomUUID(),
+      role,
+      original,
+      translated,
+      status: translated ? "translated" : "unsupported",
+      read: false,
+      time: new Date().toISOString(),
+      auto,
+    };
+    setState((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) =>
+        c.id === conversation.id ? { ...c, messages: [...c.messages, m] } : c,
+      ),
+    }));
+    setInput("");
+    if(!translated&&!auto&&authConfigured&&readSession()){
+      const target=role==='customer'?'ko':lang;
+      translateWithServer(original,target).then(result=>setState(s=>({...s,conversations:s.conversations.map(c=>c.id===conversation.id?{...c,messages:c.messages.map(item=>item.id===m.id?{...item,translated:result,status:'translated',translationProvider:'api',translationTarget:target}:item)}:c)}))).catch(()=>{});
+    }
+  };
+  return (
+    <Modal
+      title={`${tx(store.name)} · ${tr(conversation.orderId ? "orderChat" : "inquiry")}`}
+      onClose={onClose}
+    >
+      <div className="chat-context">
+        <span className="demo-pill">DEMO</span>
+        <span>{tr("chatDemo")}</span>
+        <small>{conversation.orderId ?? tr("responseHours")}</small>
+      </div>
+      <div className="chat-messages">
+        {!conversation.messages.length && (
+          <div className="chat-welcome">
+            <MessageCircle size={28} />
+            <p>{tr("noChats")}</p>
+          </div>
+        )}
+        {conversation.messages.map((m) => {
+          const mine = m.role === (owner ? "owner" : "customer");
+          const target=owner?'ko':lang;
+          const display = m.translationProvider==='api'&&m.translationTarget===target?m.translated:translate(m.original,target);
+          return (
+            <div key={m.id} className={`message ${mine ? "mine" : "theirs"}`}>
+              <span className="message-sender">
+                {m.role === "owner" ? tx(store.name) : tr("customer")}
+                {m.auto && ` · ${tr("autoReply")}`}
+              </span>
+              <div className="message-bubble">
+                <p>{display ?? m.original}</p>
+                <span
+                  className={`translation-state ${!display ? "unsupported" : ""}`}
+                >
+                  {display ? (m.translationProvider==='api'?'API · ':'')+tr("translated") : tr("unsupported")}
+                </span>
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    setOriginals((o) =>
+                      o.includes(m.id)
+                        ? o.filter((id) => id !== m.id)
+                        : [...o, m.id],
+                    )
+                  }
+                >
+                  {tr("original")}
+                </button>
+                {originals.includes(m.id) && (
+                  <blockquote>{m.original}</blockquote>
+                )}
+              </div>
+              <small className="message-meta">
+                {new Date(m.time).toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: "Asia/Seoul",
+                })}{" "}
+                · {tr(m.read ? "read" : "sent")}{" "}
+                {m.read && <CheckCheck size={11} />}
+              </small>
+            </div>
+          );
+        })}
+        <div ref={messagesEnd} />
+      </div>
+      <div className="chat-bottom">
+        <div className="quick-questions">
+          {(owner ? quickReplies : quickQuestions).map((q, i) => (
+            <button
+              key={i}
+              onClick={() => append(tx(q), owner ? "owner" : "customer")}
+            >
+              {tx(q)}
+            </button>
+          ))}
+        </div>
+        <form
+          className="chat-input"
+          onSubmit={(e) => {
+            e.preventDefault();
+            append(input, owner ? "owner" : "customer");
+          }}
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={tr("message")}
+            aria-label={tr("message")}
+            maxLength={1000}
+          />
+          <button
+            className="primary"
+            aria-label={tr("send")}
+            disabled={!input.trim()}
+          >
+            <Send size={18} />
+          </button>
+        </form>
+        <div className="chat-notes">
+          <span>{tr("chatNotice")}</span>
+          {!owner && (
+            <button
+              className="text-button"
+              onClick={() => append("확인하겠습니다.", "owner", true)}
+            >
+              <Sparkles size={13} />
+              {tr("autoReply")}
+            </button>
+          )}
+        </div>
+        <p className="fine-print">{tr("allergy")}</p>
+      </div>
+    </Modal>
+  );
+}
+export function MissionsScreen() {
+  const { state, tr, tx, openStore, setTab } = useApp();
+  const progress = missionProgress(state);
+  const ids = progress[0].storeIds;
+  return (
+    <div className="page-content">
+      <div className="mission-page-hero">
+        <div>
+          <span className="eyebrow">COLLECT MOMENTS, NOT MILES</span>
+          <h1>{tr("missionTitle")}</h1>
+          <p>{tr("missionSub")}</p>
+        </div>
+        <div className="mission-illustration">
+          <Compass size={86} strokeWidth={1} />
+          <span>
+            SEONGSU
+            <br />
+            EXPLORER
+          </span>
+        </div>
+      </div>
+      <div className="mission-stats">
+        <div>
+          <b>
+            {ids.length}
+            <small> / 15</small>
+          </b>
+          <span>{tr("completedStores")}</span>
+        </div>
+        <div>
+          <b>
+            {Object.values(state.missionRewards)
+              .reduce((a, n) => a + n, 0)
+              .toLocaleString()}
+            <small>P</small>
+          </b>
+          <span>{tr("campaignPoints")}</span>
+        </div>
+        <button
+          className="secondary"
+          onClick={() => {
+            sessionStorage.setItem("mission-filter", "true");
+            setTab("map");
+          }}
+        >
+          {tr("seeTargets")}
+          <ArrowUpRight size={17} />
+        </button>
+      </div>
+      <div className="mission-grid">
+        {missions.map((m, i) => (
+          <article
+            className={`mission-card ${m.upcoming ? "upcoming" : ""} ${progress[i].complete ? "finished" : ""}`}
+            key={m.id}
+          >
+            <div className="mission-card-top">
+              <span className="mission-number">
+                {m.upcoming ? (
+                  <Lock size={22} />
+                ) : progress[i].complete ? (
+                  <Check size={25} />
+                ) : (
+                  <Flag size={24} />
+                )}
+              </span>
+              <span className="tiny-label">
+                {m.upcoming ? "COMING SOON" : `CHAPTER 0${i + 1}`}
+              </span>
+            </div>
+            <h2>
+              {i === 0
+                ? tr("explore5")
+                : i === 1
+                  ? tr("explore10")
+                  : `${tr("national")} ${m.target.toLocaleString()}`}
+            </h2>
+            <p>{m.upcoming ? tr("upcomingMission") : tr("missionRule")}</p>
+            {!m.upcoming && (
+              <>
+                <div className="mission-progress-bar">
+                  <span
+                    style={{
+                      width: `${Math.min(100, (ids.length / m.target) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="mission-progress-text">
+                  <b>
+                    {Math.min(ids.length, m.target)} / {m.target}
+                  </b>
+                  <span>
+                    {progress[i].complete
+                      ? "🏅 SEONGSU EXPLORER"
+                      : tr("completedStores")}
+                  </span>
+                </div>
+                <div className="mission-reward">
+                  <Sparkles size={17} />
+                  <span>{tr("campaignPoints")}</span>
+                  <b>+{m.reward.toLocaleString()}P</b>
+                </div>
+              </>
+            )}
+            {m.upcoming && (
+              <div className="locked-line">
+                <Lock size={14} />
+                {tr("readonlyUpcoming")}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+      <div className="mission-terms">
+        <h4>{tr("conditions")}</h4>
+        <p>
+          {tr("missionRule")} · 2026.10.01–12.31 · {tr("missionRewardNotice")}
+        </p>
+        <p>
+          {tx([
+            "취소·환불 시 재계산 · 같은 매장 반복 구매는 1곳 · 0원 주문 제외",
+            "Recalculated on cancellations/refunds · one count per store · excludes zero-total orders",
+            "取消退款后重新计算 · 每家店铺计一次 · 不含零元订单",
+            "取消・返金時に再計算・同じ店舗は1件・0ウォン注文対象外",
+          ])}
+        </p>
+      </div>
+      <div className="section-heading">
+        <h2>{tr("unvisited")}</h2>
+        <span>
+          {state.stores.filter((s) => s.mission && !ids.includes(s.id)).length}
+        </span>
+      </div>
+      <div className="mini-store-grid">
+        {state.stores
+          .filter((s) => s.mission)
+          .map((s) => (
+            <button
+              className="mini-store"
+              key={s.id}
+              onClick={() => openStore(s.id)}
+            >
+              <Photo store={s} />
+              <div>
+                <h4>{tx(s.name)}</h4>
+                <small>
+                  {ids.includes(s.id)
+                    ? `✓ ${tr("explored")}`
+                    : `◎ ${tr("target")}`}
+                </small>
+              </div>
+              <ChevronRight size={17} />
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+}
+export function MyScreen({
+  onReset,
+  onMapError,
+}: {
+  onReset: () => void;
+  onMapError: () => void;
+}) {
+  const { state, setState, lang, tr, tx, openStore, toast } = useApp();
+  const [sub, setSub] = useState("vouchers");
+  return (
+    <div className="page-content">
+      <div className="page-heading">
+        <span className="eyebrow">YOUR NEIGHBORHOOD, YOUR PERKS</span>
+        <h1>{tr("myTitle")}</h1>
+        <p>{tr("pointNotice")}</p>
+      </div>
+      <div className="profile-card">
+        <div className="profile-avatar">
+          g<span>g</span>
+        </div>
+        <div>
+          <h3>
+            {tx([
+              "골목 탐험가",
+              "Neighborhood explorer",
+              "小巷探索家",
+              "路地の探検家",
+            ])}
+          </h3>
+          <p>{tr("demoLoginNote")}</p>
+        </div>
+        <button className="kakao-demo" onClick={() => toast(tr("demoSaved"))}>
+          <MessageCircle size={16} />
+          {tr("demoLogin")}
+        </button>
+      </div>
+      <div className="page-tabs">
+        {[
+          ["vouchers", <Wallet size={16} />],
+          ["points", <Sparkles size={16} />],
+          ["coupon", <Ticket size={16} />],
+          ["savedPlaces", <Heart size={16} />],
+          ["settings", <Settings2 size={16} />],
+        ].map(([key, icon]) => (
+          <button
+            key={key as string}
+            className={sub === key ? "active" : ""}
+            onClick={() => setSub(key as string)}
+          >
+            {icon}
+            {tr(key as string)}
+          </button>
+        ))}
+      </div>
+      {sub === "vouchers" && (
+        <>
+          <h3>{tr("voucherWallet")}</h3>
+          <p className="fine-print">{tr("voucherNotice")}</p>
+          <div className="voucher-wallet-grid">
+            {regionalVouchers.map((v) => {
+              const storesCount = state.stores.filter((s) =>
+                (s.vouchers ?? []).includes(v.id),
+              ).length;
+              return (
+                <article key={v.id} className={`voucher-card voucher-${v.id}`}>
+                  <div className="voucher-card-top">
+                    <div>
+                      <span className="eyebrow">{tx(v.region)}</span>
+                      <h3>{tx(v.name)}</h3>
+                    </div>
+                    <Wallet size={21} />
+                  </div>
+                  <strong>{won(voucherBalance(state, v.id), lang)}</strong>
+                  <p>
+                    {tx(v.desc)} · {storesCount} {tr("results")}
+                  </p>
+                  <div className="voucher-card-actions">
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setState((s) => chargeVoucher(s, v.id, 10000));
+                        toast(`${tx(v.name)} · ${tr("voucherCharged")}`);
+                      }}
+                    >
+                      <Plus size={14} />
+                      {tr("voucherCharge")}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <h3>{tr("voucherLedger")}</h3>
+          <div className="ledger-list">
+            {[...(state.voucherLedger ?? [])].reverse().map((l) => {
+              const v = regionalVouchers.find(
+                (item) => item.id === l.voucherId,
+              )!;
+              const store = l.storeId
+                ? state.stores.find((s) => s.id === l.storeId)
+                : undefined;
+              return (
+                <div className="ledger-entry" key={l.id}>
+                  <span
+                    className={`ledger-icon ${l.amount < 0 ? "minus" : ""}`}
+                  >
+                    <Wallet size={17} />
+                  </span>
+                  <div>
+                    <b>
+                      {tx(v.name)}
+                      {store ? ` · ${tx(store.name)}` : ""} · {tr(l.kind)}
+                    </b>
+                    <small>
+                      {l.createdAt.slice(0, 10)}
+                      {l.orderId && ` · ${l.orderId}`}
+                    </small>
+                  </div>
+                  <strong className={l.amount > 0 ? "positive" : ""}>
+                    {l.amount > 0 ? "+" : "−"}
+                    {won(Math.abs(l.amount), lang)}
+                  </strong>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {sub === "points" && (
+        <>
+          <h3>{tr("storePoints")}</h3>
+          <div className="wallet-grid">
+            {state.stores
+              .filter(
+                (s) =>
+                  balance(state, s.id) > 0 ||
+                  state.ledger.some((l) => l.storeId === s.id),
+              )
+              .map((s) => (
+                <button
+                  className="wallet-card"
+                  key={s.id}
+                  onClick={() => openStore(s.id)}
+                >
+                  <span>
+                    <StoreIcon size={18} />
+                    {tx(s.name)}
+                  </span>
+                  <strong>
+                    {balance(state, s.id).toLocaleString()}
+                    <small>P</small>
+                  </strong>
+                  <p>
+                    {tr("pointsCondition")} {won(s.pointMin, lang)}
+                    <ChevronRight size={15} />
+                  </p>
+                </button>
+              ))}
+          </div>
+          <h3>{tr("ledger")}</h3>
+          <div className="ledger-list">
+            {[...state.ledger].reverse().map((l) => (
+              <div className="ledger-entry" key={l.id}>
+                <span className={`ledger-icon ${l.amount < 0 ? "minus" : ""}`}>
+                  <Sparkles size={17} />
+                </span>
+                <div>
+                  <b>
+                    {tx(state.stores.find((s) => s.id === l.storeId)!.name)} ·{" "}
+                    {tr(l.kind === "earn" ? "earn" : l.kind)}
+                  </b>
+                  <small>
+                    {l.createdAt.slice(0, 10)}
+                    {l.orderId && ` · ${l.orderId}`}
+                    {l.expiresAt && ` · ${tr("expiry")} ${l.expiresAt}`}
+                  </small>
+                </div>
+                <strong className={l.amount > 0 ? "positive" : ""}>
+                  {l.amount > 0 ? "+" : ""}
+                  {l.amount}P
+                </strong>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {sub === "coupon" && (
+        <div className="coupons-grid">
+          {state.coupons.map((c) => (
+            <div key={c.id}>
+              <button
+                className="text-button"
+                onClick={() => openStore(c.storeId)}
+              >
+                {tx(state.stores.find((s) => s.id === c.storeId)!.name)}
+                <ArrowUpRight size={14} />
+              </button>
+              <CouponCard coupon={c} />
+            </div>
+          ))}
+        </div>
+      )}
+      {sub === "savedPlaces" && (
+        <section className="regular-section">
+          <div className="regular-heading">
+            <div>
+              <h3>
+                <Heart size={19} />
+                {tr("regularCount")}{" "}
+                <span>
+                  {
+                    state.stores.filter((s) => state.saved.includes(s.id))
+                      .length
+                  }
+                </span>
+              </h3>
+              <p>{tr("regularIntro")}</p>
+            </div>
+          </div>
+          {state.saved.length ? (
+            <div className="regular-grid">
+              {state.stores
+                .filter((s) => state.saved.includes(s.id))
+                .map((s) => (
+                  <article key={s.id} className="regular-card">
+                    <button
+                      className="regular-store-link"
+                      onClick={() => openStore(s.id)}
+                      aria-label={`${tx(s.name)} ${tr("details")}`}
+                    >
+                      <Photo store={s} />
+                      <div>
+                        <h3>{tx(s.name)}</h3>
+                        <Status store={s} detail />
+                        <p>{tx(s.description)}</p>
+                      </div>
+                      <ChevronRight size={17} />
+                    </button>
+                    <div className="regular-card-footer">
+                      <span>
+                        <Sparkles size={13} />
+                        {s.rate}% {tr("earn")}
+                      </span>
+                      <RegularButton store={s} compact />
+                    </div>
+                  </article>
+                ))}
+            </div>
+          ) : (
+            <Empty title={tr("noSaved")}>
+              <button className="primary" onClick={() => openStore("s1")}>
+                {tr("goExplore")}
+                <ArrowUpRight size={16} />
+              </button>
+            </Empty>
+          )}
+        </section>
+      )}
+      {sub === "settings" && (
+        <div className="settings-card">
+          <h3>
+            <Clock size={20} />
+            {tr("clock")}
+          </h3>
+          <p>{tr("timeNotice")}</p>
+          <div className="clock-options">
+            {Object.entries(clockNames).map(([id, label]) => (
+              <button
+                className={state.clock === id ? "selected" : ""}
+                key={id}
+                onClick={() => setState((s) => ({ ...s, clock: id }))}
+              >
+                {tx(label)}
+              </button>
+            ))}
+          </div>
+          <p className="inline-info">
+            {state.clock === "real" ? "KST" : tr("demoTime")} ·{" "}
+            {kst(nowFor(state.clock)).date}
+          </p>
+          <hr />
+          <h3>{tr("settings")}</h3>
+          <p>{tr("notRealServices")}</p>
+          <div className="settings-actions">
+            <button className="secondary" onClick={onMapError}>
+              <MapPin size={17} />
+              {tr("testError")}
+            </button>
+            <button className="secondary danger" onClick={onReset}>
+              <RotateCcw size={16} />
+              {tr("reset")}
+            </button>
+          </div>
+          <small>localStorage · schema v3</small>
+        </div>
+      )}
+    </div>
+  );
+}
