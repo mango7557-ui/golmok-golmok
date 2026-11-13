@@ -22,7 +22,9 @@ import { OrderCard } from "./screens";
 import { Photo, Status } from "./components";
 import {
   authConfigured,
+  kakaoConfigured,
   checkAuthConnection,
+  checkKakaoConnection,
   getServerRole,
   integrationCatalog,
 } from "./services";
@@ -253,12 +255,13 @@ export function AdminScreen({
                   </div>
                   <div className="connection-summary">
                     <strong>
-                      2<span> / 10</span>
+                      {integrationCatalog.filter((i) => i.status !== "pending").length}
+                      <span> / {integrationCatalog.length}</span>
                     </strong>
                     <p>
-                      인증키 없이 사용할 수 있는
+                      OpenStreetMap · Daum 주소 검색
                       <br />
-                      지도·주소 검색 연결 구현
+                      {kakaoConfigured ? "+ Kakao JS SDK 연결됨" : "공개 API 연결 구현"}
                     </p>
                   </div>
                   <p className="fine-print">
@@ -517,6 +520,26 @@ export function AdminScreen({
                     <a href={service.url} target="_blank" rel="noreferrer">
                       공식 서비스 <ExternalLink size={13} />
                     </a>
+                    {service.id === "kakao" && (
+                      <button
+                        className="secondary"
+                        disabled={!kakaoConfigured || checking}
+                        onClick={async () => {
+                          setChecking(true);
+                          try {
+                            setCheckResult(await checkKakaoConnection());
+                          } catch (e) {
+                            setCheckResult(
+                              e instanceof Error ? e.message : "카카오 SDK 연결 실패",
+                            );
+                          } finally {
+                            setChecking(false);
+                          }
+                        }}
+                      >
+                        {checking ? "확인 중…" : "카카오 SDK 초기화 확인"}
+                      </button>
+                    )}
                     {service.id === "auth" && (
                       <button
                         className="secondary"

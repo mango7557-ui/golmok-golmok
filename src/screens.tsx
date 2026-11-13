@@ -52,7 +52,15 @@ import {
 import { Empty, Modal, Photo, CouponCard, Status } from "./components";
 import { RegularButton } from "./RegularButton";
 import { won } from "./i18n";
-import {authConfigured,readSession,translateWithServer} from './services';
+import {
+  authConfigured,
+  kakaoConfigured,
+  readKakaoSession,
+  startKakaoLogin,
+  readSession,
+  translateWithServer,
+} from "./services";
+import { readMember } from "./Member";
 export function OrderCard({
   order,
   merchant = false,
@@ -959,8 +967,10 @@ export function MyScreen({
   onReset: () => void;
   onMapError: () => void;
 }) {
-  const { state, setState, lang, tr, tx, openStore, toast } = useApp();
+  const { state, setState, lang, tr, tx, openStore, setTab, toast } = useApp();
   const [sub, setSub] = useState("vouchers");
+  const kakaoUser = readKakaoSession();
+  const localMember = readMember();
   return (
     <div className="page-content">
       <div className="page-heading">
@@ -970,22 +980,44 @@ export function MyScreen({
       </div>
       <div className="profile-card">
         <div className="profile-avatar">
-          g<span>g</span>
+          S<span>.</span>
         </div>
         <div>
           <h3>
-            {tx([
-              "골목 탐험가",
-              "Neighborhood explorer",
-              "小巷探索家",
-              "路地の探検家",
-            ])}
+            {kakaoUser?.nickname ??
+              localMember?.name ??
+              tx([
+                "골목 탐험가",
+                "Neighborhood explorer",
+                "小巷探索家",
+                "路地の探検家",
+              ])}
           </h3>
-          <p>{tr("demoLoginNote")}</p>
+          <p>
+            {kakaoUser
+              ? `카카오 인증 연결됨 (${kakaoUser.email ?? `ID #${kakaoUser.kakaoId}`})`
+              : tr("demoLoginNote")}
+          </p>
         </div>
-        <button className="kakao-demo" onClick={() => toast(tr("demoSaved"))}>
+        <button
+          className="kakao-demo"
+          onClick={async () => {
+            if (
+              kakaoConfigured &&
+              (location.protocol === "http:" || location.protocol === "https:")
+            ) {
+              try {
+                await startKakaoLogin();
+                return;
+              } catch (e) {
+                toast(e instanceof Error ? e.message : tr("demoSaved"));
+              }
+            }
+            setTab("account");
+          }}
+        >
           <MessageCircle size={16} />
-          {tr("demoLogin")}
+          {kakaoConfigured ? "카카오로 로그인 · 연결" : tr("demoLogin")}
         </button>
       </div>
       <div className="page-tabs">

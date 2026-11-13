@@ -9,10 +9,17 @@ import {
   UserRound,
   LogOut,
   ArrowLeft,
+  MessageCircle,
+  Copy,
 } from "lucide-react";
 import { useApp } from "./context";
 import {
   authConfigured,
+  kakaoConfigured,
+  getKakaoRedirectUri,
+  startKakaoLogin,
+  readKakaoSession,
+  clearKakaoSession,
   readSession,
   signIn,
   signOut,
@@ -39,6 +46,7 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
   );
   const [member, setMember] = useState(readMember);
   const [session, setSession] = useState(readSession);
+  const [kakaoSession, setKakaoSession] = useState(readKakaoSession);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,7 +57,10 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   useEffect(() => {
-    const fn = () => setSession(readSession());
+    const fn = () => {
+      setSession(readSession());
+      setKakaoSession(readKakaoSession());
+    };
     window.addEventListener("seongsu-auth", fn);
     return () => window.removeEventListener("seongsu-auth", fn);
   }, []);
@@ -151,7 +162,7 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
           <span className="story-bottom">SMALL STREETS. BIG DISCOVERIES.</span>
         </aside>
         <section className="account-form-panel">
-          {member || session ? (
+          {member || session || kakaoSession ? (
             <div className="member-complete">
               <div className="member-emblem">
                 <UserRound size={38} />
@@ -160,7 +171,8 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
                 WELCOME TO THE NEIGHBORHOOD
               </span>
               <h2>
-                {session?.user.user_metadata?.name ??
+                {kakaoSession?.nickname ??
+                  session?.user.user_metadata?.name ??
                   member?.name ??
                   session?.user.email}
                 님,
@@ -168,9 +180,11 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
                 반가워요.
               </h2>
               <p>
-                {session
-                  ? "인증 서버에 로그인된 계정입니다."
-                  : "이 브라우저에 저장된 체험 프로필입니다. 실제 회원가입·본인인증은 수행되지 않았습니다."}
+                {kakaoSession
+                  ? `카카오 인증 완료 계정입니다 (${kakaoSession.email ?? `ID #${kakaoSession.kakaoId}`}).`
+                  : session
+                    ? "인증 서버에 로그인된 계정입니다."
+                    : "이 브라우저에 저장된 체험 프로필입니다. 실제 회원가입·본인인증은 수행되지 않았습니다."}
               </p>
               {member && (
                 <div className="interest-tags">
@@ -186,8 +200,10 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
                 className="secondary full"
                 onClick={async () => {
                   try {
-                    if (session) await signOut();
+                    if (kakaoSession) clearKakaoSession();
+                    else if (session) await signOut();
                     else localStorage.removeItem(MEMBER_KEY);
+                    setKakaoSession(null);
                     setSession(null);
                     setMember(null);
                   } catch (e) {
@@ -196,7 +212,7 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
                 }}
               >
                 <LogOut size={16} />
-                {session ? "로그아웃" : "체험 프로필 지우기"}
+                {kakaoSession || session ? "로그아웃" : "체험 프로필 지우기"}
               </button>
             </div>
           ) : (
@@ -372,11 +388,60 @@ export function AccountScreen({ onAdmin }: { onAdmin: () => void }) {
                   </button>
                 </div>
               )}
+              {kakaoConfigured && (
+                <div className="kakao-auth-block">
+                  <button
+                    type="button"
+                    className="kakao-login-btn full"
+                    disabled={busy}
+                    onClick={async () => {
+                      setError("");
+                      setNotice("");
+                      setBusy(true);
+                      try {
+                        await startKakaoLogin();
+                      } catch (e) {
+                        setError(
+                          e instanceof Error
+                            ? e.message
+                            : "카카오 로그인을 시작하지 못했습니다.",
+                        );
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    <MessageCircle size={18} />
+                    카카오로 계속하기 (Kakao SDK)
+                  </button>
+                  <details className="kakao-uri-guide">
+                    <summary>카카오 콘솔 Redirect URI · 도메인 설정 안내</summary>
+                    <p>
+                      카카오 개발자 콘솔 <b>플랫폼 → Web</b>에{" "}
+                      <code>https://mango7557-ui.github.io</code>,{" "}
+                      <b>카카오 로그인 → Redirect URI</b>에{" "}
+                      <code>{getKakaoRedirectUri()}</code> 등록이 필요합니다.
+                    </p>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        navigator.clipboard
+                          ?.writeText(getKakaoRedirectUri())
+                          .then(() => toast("Redirect URI를 복사했습니다."));
+                      }}
+                    >
+                      <Copy size={13} /> Redirect URI 복사
+                    </button>
+                  </details>
+                </div>
+              )}
               <div className="account-social">
                 <Mail size={16} />
                 {authConfigured
                   ? "실제 이메일 인증 사용"
-                  : "카카오·이메일 인증 연결 대기"}
+                  : kakaoConfigured
+                    ? "카카오 JS SDK 연결됨 · 이메일 인증 대기"
+                    : "카카오·이메일 인증 연결 대기"}
               </div>
             </>
           )}

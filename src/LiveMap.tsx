@@ -5,9 +5,10 @@ import { Layers, LocateFixed, RotateCw } from "lucide-react";
 import { mapAdapter as illustratedAdapter, type MapAdapterProps } from "./Map";
 import { businessStatus, nowFor, text } from "./domain";
 import { t } from "./i18n";
+import { kakaoConfigured, loadKakaoMaps } from "./services";
 const Demo = illustratedAdapter.Component;
 export function LiveMap(props: MapAdapterProps) {
-  const [kind, setKind] = useState<"real" | "demo">("real");
+  const [kind, setKind] = useState<"real" | "kakao" | "demo">("real");
   return (
     <div className="map-provider-shell">
       <div className="map-provider-tabs">
@@ -17,6 +18,14 @@ export function LiveMap(props: MapAdapterProps) {
         >
           OpenStreetMap
         </button>
+        {kakaoConfigured && (
+          <button
+            className={kind === "kakao" ? "active" : ""}
+            onClick={() => setKind("kakao")}
+          >
+            KakaoMap
+          </button>
+        )}
         <button
           className={kind === "demo" ? "active" : ""}
           onClick={() => setKind("demo")}
@@ -26,8 +35,100 @@ export function LiveMap(props: MapAdapterProps) {
       </div>
       {kind === "real" && !props.mapError ? (
         <StreetMap {...props} onFallback={() => setKind("demo")} />
+      ) : kind === "kakao" && !props.mapError ? (
+        <KakaoStreetMap {...props} onFallback={() => setKind("real")} />
       ) : (
         <Demo {...props} />
+      )}
+    </div>
+  );
+}
+function KakaoStreetMap({
+  stores,
+  state,
+  selected,
+  onSelect,
+  lang,
+  onFallback,
+}: MapAdapterProps & { onFallback: () => void }) {
+  const element = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const overlaysRef = useRef<any[]>([]);
+  const select = useRef(onSelect);
+  select.current = onSelect;
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errMsg, setErrMsg] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    setStatus("loading");
+    loadKakaoMaps()
+      .then(() => {
+        if (cancelled || !element.current || !window.kakao?.maps) return;
+        const center = new window.kakao.maps.LatLng(37.546, 127.0514);
+        mapRef.current = new window.kakao.maps.Map(element.current, {
+          center,
+          level: 4,
+        });
+        setStatus("ready");
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setErrMsg(
+          e instanceof Error ? e.message : "카카오맵을 불러오지 못했습니다.",
+        );
+        setStatus("error");
+      });
+    return () => {
+      cancelled = true;
+      overlaysRef.current.forEach((o) => o.setMap(null));
+      overlaysRef.current = [];
+      mapRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    if (status !== "ready" || !mapRef.current || !window.kakao?.maps) return;
+    overlaysRef.current.forEach((o) => o.setMap(null));
+    overlaysRef.current = stores.map((s) => {
+      const st = businessStatus(s, nowFor(state.clock));
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = `live-store-pin ${selected === s.id ? "selected" : ""}`;
+      const dot = document.createElement("i");
+      dot.className = `status-${st.code}`;
+      const titleEl = document.createElement("b");
+      titleEl.textContent = text(s.name, lang);
+      const smallEl = document.createElement("small");
+      smallEl.textContent = `${t(st.code, lang)} · ${s.rate}%`;
+      el.append(dot, titleEl, smallEl);
+      el.onclick = () => select.current(s.id);
+      const overlay = new window.kakao!.maps!.CustomOverlay({
+        position: new window.kakao!.maps!.LatLng(s.lat, s.lng),
+        content: el,
+        yAnchor: 1.15,
+        zIndex: selected === s.id ? 20 : 5,
+      });
+      overlay.setMap(mapRef.current);
+      return overlay;
+    });
+  }, [stores, state.clock, selected, lang, status]);
+  return (
+    <div className="live-map-surface">
+      <div ref={element} className="live-map-canvas" aria-label="KakaoMap 실제 지도" />
+      <div className="live-map-disclaimer">
+        <span className="live-dot" />
+        KakaoMap SDK · 가상 매장 위치 데이터
+      </div>
+      {status === "loading" && (
+        <span className="map-loading-note">KakaoMap SDK 연결 중…</span>
+      )}
+      {status === "error" && (
+        <div className="map-network-error" role="status">
+          <b>카카오맵 도메인 등록 확인 필요</b>
+          <p>{errMsg}</p>
+          <button className="secondary" onClick={onFallback}>
+            OpenStreetMap으로 계속 탐색
+          </button>
+        </div>
       )}
     </div>
   );

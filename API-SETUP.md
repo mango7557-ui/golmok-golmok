@@ -3,6 +3,7 @@
 ## 지금 작동하는 외부 연결
 
 - **OpenStreetMap / Leaflet**: 실제 지도 타일, 이동·확대·마커·영역 재검색. 출처 표시. 핀과 상호는 여전히 가상 매장 데이터. 네트워크 장애 시 SVG 데모 전환과 목록 탐색 제공.
+- **Kakao JavaScript SDK (`v2.7.4`) & KakaoMap SDK**: 브라우저 공개용 JavaScript 앱키(`VITE_KAKAO_JS_KEY`)로 초기화되어 카카오 로그인 인가 요청(`Kakao.Auth.authorize`), 카카오톡 피드 공유(`Kakao.Share.sendDefault`), `KakaoMap` 탭 전환을 지원합니다. (REST API 키·Client Secret·비즈니스 키·네이티브 키는 프론트엔드에서 완전히 분리해 GitHub Actions 암호화 Secrets에만 저장했습니다.)
 - **Daum 우편번호 SDK**: 결제창의 도로명 주소 검색. 실제 주소 선택 시 주소·우편번호 반영. 키 없이 제공되는 서비스이며 실패 시 수동 입력 가능.
 - **브라우저 위치 API**: 사용자의 명시적 권한을 요청. 가상 매장 지도는 성수 예시 지역을 유지.
 - **GitHub Pages**: 공개 프론트엔드 배포.
@@ -34,7 +35,7 @@
 | 연결 | 필요한 사용자 준비 | 현재 상태 |
 |---|---|---|
 | 실결제·카카오페이·네이버페이 | PG 가맹 계약, 사업자 정보, 테스트/운영 키, 웹훅·정산 설정 | 실제 결제 없음. 서버 금액 검증·승인 엔드포인트를 계약 이후 구현해야 함 |
-| 카카오 회원인증 | 카카오 개발자 앱·비즈앱, Redirect URI, Supabase OAuth 제공자 설정 | 카카오 인증 미연결 |
+| 카카오 회원인증 · 공유 · 카카오맵 | 카카오 개발자 콘솔 **[플랫폼 → Web]** 도메인(`https://mango7557-ui.github.io`) 등록 및 **[카카오 로그인 → Redirect URI]**(`https://mango7557-ui.github.io/golmok-golmok/`) 등록, `supabase/functions/kakao-auth` 배포 | **Kakao JS SDK 연결 완료** · 콘솔 도메인/Redirect URI 및 토큰 교환 서버 배포 시 전체 OAuth 완결 |
 | 온누리·서울페이+·지역화폐 | 운영기관 공식 API 권한·가맹 검증·정산 계약 | 데모 잔액만 차감·복원. 실제 잔액/가맹/지역 간 사용 불가 |
 | 택배 | 택배사 계약·운송장 발급/조회 API 권한·발송자 정보 | DEMO 운송장만 생성 |
 | 실제 주문·실시간 채팅·알림 | 주문 DB/트랜잭션 서버·매장 권한·Realtime·푸시 서비스 | 동일 브라우저 내 상태만 공유 |

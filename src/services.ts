@@ -2,9 +2,11 @@
 export const serviceConfig = {
   supabaseUrl: (import.meta.env.VITE_SUPABASE_URL ?? "").replace(/\/$/, ""),
   supabaseKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+  kakaoJsKey: (import.meta.env.VITE_KAKAO_JS_KEY ?? "").trim(),
 };
 export const authConfigured =
   !!serviceConfig.supabaseUrl && !!serviceConfig.supabaseKey;
+export const kakaoConfigured = !!serviceConfig.kakaoJsKey;
 export interface AuthSession {
   access_token: string;
   refresh_token: string;
@@ -136,6 +138,25 @@ export interface AddressResult {
   address: string;
   zonecode: string;
 }
+export interface KakaoVerifiedSession {
+  kakaoId: string;
+  nickname: string;
+  email?: string;
+  verifiedAt: string;
+}
+const KAKAO_SESSION_KEY = "seongsu-kakao-verified";
+const KAKAO_STATE_KEY = "seongsu-kakao-oauth-state";
+export function readKakaoSession(): KakaoVerifiedSession | null {
+  try {
+    return JSON.parse(sessionStorage.getItem(KAKAO_SESSION_KEY) ?? "null");
+  } catch {
+    return null;
+  }
+}
+export function clearKakaoSession() {
+  sessionStorage.removeItem(KAKAO_SESSION_KEY);
+  window.dispatchEvent(new Event("seongsu-auth"));
+}
 declare global {
   interface Window {
     daum?: {
@@ -144,7 +165,244 @@ declare global {
         onclose?: () => void;
       }) => { embed: (container: HTMLElement) => void };
     };
+    Kakao?: {
+      init: (key: string) => void;
+      isInitialized: () => boolean;
+      Auth: {
+        authorize: (options: {
+          redirectUri: string;
+          state?: string;
+          scope?: string;
+        }) => void;
+      };
+      Share: {
+        sendDefault: (payload: Record<string, unknown>) => void;
+      };
+    };
+    kakao?: {
+      maps?: {
+        load: (cb: () => void) => void;
+        LatLng: new (lat: number, lng: number) => any;
+        Map: new (container: HTMLElement, options: { center: any; level: number }) => any;
+        CustomOverlay: new (options: Record<string, unknown>) => any;
+      };
+    };
   }
+}
+let kakaoSdkPromise: Promise<void> | null = null;
+export function getKakaoRedirectUri() {
+  if (location.protocol === "http:" || location.protocol === "https:") {
+    return `${location.origin}${location.pathname}`;
+  }
+  return "https://mango7557-ui.github.io/golmok-golmok/";
+}
+export function loadKakaoSdk(): Promise<void> {
+  if (!kakaoConfigured)
+    return Promise.reject(new Error("카카오 JavaScript 키가 설정되지 않았습니다."));
+  if (window.Kakao?.isInitialized()) return Promise.resolve();
+  if (kakaoSdkPromise) return kakaoSdkPromise;
+  kakaoSdkPromise = new Promise((resolve, reject) => {
+    const init = () => {
+      try {
+        if (!window.Kakao) throw new Error("Kakao SDK 객체를 찾을 수 없습니다.");
+        if (!window.Kakao.isInitialized()) {
+          window.Kakao.init(serviceConfig.kakaoJsKey);
+        }
+        if (window.Kakao.isInitialized()) resolve();
+        else throw new Error("Kakao SDK 초기화 실패");
+      } catch (err) {
+        kakaoSdkPromise = null;
+        reject(err instanceof Error ? err : new Error("Kakao SDK 오류"));
+      }
+    };
+    if (window.Kakao) {
+      init();
+      return;
+    }
+    const script = document.createElement("script");
+    const timer = setTimeout(() => {
+      script.remove();
+      kakaoSdkPromise = null;
+      reject(new Error("카카오 SDK 로드 시간이 초과되었습니다."));
+    }, 12000);
+    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js";
+    script.crossOrigin = "anonymous";
+    script.onload = () => {
+      clearTimeout(timer);
+      init();
+    };
+    script.onerror = () => {
+      clearTimeout(timer);
+      script.remove();
+      kakaoSdkPromise = null;
+      reject(new Error("카카오 SDK 네트워크 연결 실패"));
+    };
+    document.head.appendChild(script);
+  });
+  return kakaoSdkPromise;
+}
+export async function startKakaoLogin() {
+  if (location.protocol === "file:") {
+    throw new Error(
+      "로컬 파일(file://)에서는 카카오 OAuth 리다이렉트를 사용할 수 없습니다. 배포 링크(https://mango7557-ui.github.io/golmok-golmok/)에서 실행해 주세요.",
+    );
+  }
+  await loadKakaoSdk();
+  const state = crypto.randomUUID();
+  sessionStorage.setItem(KAKAO_STATE_KEY, state);
+  window.Kakao!.Auth.authorize({
+    redirectUri: getKakaoRedirectUri(),
+    state,
+  });
+}
+export async function consumeKakaoRedirect(): Promise<{
+  notice?: string;
+  error?: string;
+} | null> {
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  const error = params.get("error");
+  const errorDesc = params.get("error_description");
+  const returnedState = params.get("state");
+  if (!code && !error) return null;
+
+  params.delete("code");
+  params.delete("error");
+  params.delete("error_description");
+  params.delete("state");
+  const cleanSearch = params.toString();
+  history.replaceState(
+    null,
+    "",
+    `${location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${location.hash}`,
+  );
+
+  if (error) {
+    return {
+      error: `카카오 인증 취소/오류: ${errorDesc ?? error}`,
+    };
+  }
+  const expectedState = sessionStorage.getItem(KAKAO_STATE_KEY);
+  sessionStorage.removeItem(KAKAO_STATE_KEY);
+  if (!expectedState || expectedState !== returnedState) {
+    return { error: "카카오 OAuth 보안 상태(state) 검증에 실패했습니다. 다시 시도해 주세요." };
+  }
+  if (!serviceConfig.supabaseUrl) {
+    return {
+      notice:
+        "카카오 인가 코드 수신 확인! 실제 토큰 교환을 완료하려면 Client Secret이 저장된 서버(supabase/functions/kakao-auth) 연결이 필요합니다.",
+    };
+  }
+  try {
+    const res = await fetch(
+      `${serviceConfig.supabaseUrl}/functions/v1/kakao-auth`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(serviceConfig.supabaseKey
+            ? { apikey: serviceConfig.supabaseKey }
+            : {}),
+        },
+        body: JSON.stringify({ code, redirectUri: getKakaoRedirectUri() }),
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.kakaoId) {
+      return {
+        error:
+          data.error ??
+          `카카오 토큰 교환 실패 (${res.status}) · 서버 KAKAO_REST_API_KEY / Redirect URI 설정을 확인하세요.`,
+      };
+    }
+    const verified: KakaoVerifiedSession = {
+      kakaoId: data.kakaoId,
+      nickname: data.nickname,
+      email: data.email,
+      verifiedAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem(KAKAO_SESSION_KEY, JSON.stringify(verified));
+    window.dispatchEvent(new Event("seongsu-auth"));
+    return { notice: `${verified.nickname}님, 카카오 인증이 완료되었습니다.` };
+  } catch {
+    return {
+      error:
+        "카카오 토큰 교환 서버에 연결하지 못했습니다. supabase/functions/kakao-auth 배포 상태를 확인하세요.",
+    };
+  }
+}
+export async function shareStoreViaKakao(info: {
+  title: string;
+  description: string;
+  url: string;
+  imageUrl: string;
+}) {
+  await loadKakaoSdk();
+  window.Kakao!.Share.sendDefault({
+    objectType: "feed",
+    content: {
+      title: info.title,
+      description: info.description,
+      imageUrl: info.imageUrl,
+      link: { mobileWebUrl: info.url, webUrl: info.url },
+    },
+    buttons: [
+      {
+        title: "성수역 골목형 상점가 열기",
+        link: { mobileWebUrl: info.url, webUrl: info.url },
+      },
+    ],
+  });
+}
+let kakaoMapPromise: Promise<void> | null = null;
+export function loadKakaoMaps(): Promise<void> {
+  if (!kakaoConfigured)
+    return Promise.reject(new Error("카카오 JavaScript 키가 설정되지 않았습니다."));
+  if (window.kakao?.maps?.Map) return Promise.resolve();
+  if (kakaoMapPromise) return kakaoMapPromise;
+  kakaoMapPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    const timer = setTimeout(() => {
+      script.remove();
+      kakaoMapPromise = null;
+      reject(
+        new Error(
+          "카카오맵 로드 시간 초과 · 카카오 개발자 콘솔에 현재 웹 도메인 등록이 필요합니다.",
+        ),
+      );
+    }, 10000);
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(serviceConfig.kakaoJsKey)}&autoload=false`;
+    script.onload = () => {
+      clearTimeout(timer);
+      if (!window.kakao?.maps?.load) {
+        kakaoMapPromise = null;
+        reject(
+          new Error(
+            "카카오맵 초기화 불가 · 카카오 개발자 콘솔 [플랫폼 → Web]에 현재 도메인을 등록해 주세요.",
+          ),
+        );
+        return;
+      }
+      window.kakao.maps.load(() => resolve());
+    };
+    script.onerror = () => {
+      clearTimeout(timer);
+      script.remove();
+      kakaoMapPromise = null;
+      reject(
+        new Error(
+          `카카오맵 도메인 미등록 또는 네트워크 차단 · 콘솔 [플랫폼 → Web]에 ${location.origin} 등록 필요`,
+        ),
+      );
+    };
+    document.head.appendChild(script);
+  });
+  return kakaoMapPromise;
+}
+export async function checkKakaoConnection() {
+  await loadKakaoSdk();
+  return `카카오 JS SDK v2.7.4 초기화 완료 · Redirect URI: ${getKakaoRedirectUri()}`;
 }
 let postcodeScript: Promise<void> | null = null;
 export function loadPostcode(): Promise<void> {
@@ -221,13 +479,14 @@ export const integrationCatalog = [
   },
   {
     id: "kakao",
-    name: "Kakao Login",
-    category: "간편 로그인",
-    description:
-      "실제 카카오 로그인은 미연결. 연결 전 인증 완료로 표시하지 않습니다.",
-    status: "pending",
+    name: "Kakao SDK (로그인 · 공유 · 카카오맵)",
+    category: "카카오 플랫폼",
+    description: kakaoConfigured
+      ? "카카오 JS SDK(로그인 인가·카카오톡 공유·카카오맵) 연결 및 서버 토큰 교환 함수(kakao-auth) 준비 완료. 비밀키는 GitHub Secrets로 분리 저장됨."
+      : "실제 카카오 로그인은 미연결. 연결 전 인증 완료로 표시하지 않습니다.",
+    status: kakaoConfigured ? "configured" : "pending",
     needs:
-      "카카오 개발자 앱, 비즈앱 설정, Redirect URI, Supabase OAuth 제공자 설정.",
+      "카카오 개발자 콘솔 [플랫폼 → Web]에 https://mango7557-ui.github.io 등록 및 [카카오 로그인 → Redirect URI]에 https://mango7557-ui.github.io/golmok-golmok/ 등록, 토큰 교환 서버 배포.",
     url: "https://developers.kakao.com/console/app",
   },
   {

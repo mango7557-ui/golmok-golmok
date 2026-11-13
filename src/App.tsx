@@ -74,6 +74,7 @@ import { RegularButton } from "./RegularButton";
 import {LiveMap} from './LiveMap';
 import {AccountScreen} from './Member';
 import {AdminScreen} from './Admin';
+import {consumeKakaoRedirect} from './services';
 const MapComponent = LiveMap;
 export default function App() {
   const [state, setState] = useState<State>(loadState);
@@ -130,6 +131,14 @@ export default function App() {
     const timer = setInterval(() => setState((s) => ({ ...s })), 60000);
     return () => clearInterval(timer);
   }, [state.clock]);
+  useEffect(() => {
+    consumeKakaoRedirect().then((res) => {
+      if (!res) return;
+      setTab("account");
+      setOwner(false);
+      toast(res.error ?? res.notice ?? "카카오 인증 응답을 확인했습니다.");
+    });
+  }, [toast]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !document.querySelector(".modal"))

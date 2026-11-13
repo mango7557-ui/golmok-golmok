@@ -47,6 +47,7 @@ import { useApp } from "./context";
 import { won } from "./i18n";
 import { RegularButton } from "./RegularButton";
 import {AddressSearch} from './AddressSearch';
+import {kakaoConfigured,shareStoreViaKakao} from './services';
 export const categoryIcons: Record<Category, typeof Coffee> = {
   food: UtensilsCrossed,
   cafe: Coffee,
@@ -354,8 +355,26 @@ export function StoreDetail({
               {tr("inquiry")}
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 const url = `${location.href.split("#")[0]}#store=${store.id}`;
+                if (
+                  kakaoConfigured &&
+                  (location.protocol === "http:" ||
+                    location.protocol === "https:")
+                ) {
+                  try {
+                    await shareStoreViaKakao({
+                      title: `${tx(store.name)} · 성수역 골목형 상점가`,
+                      description: tx(store.description),
+                      url,
+                      imageUrl: store.photo,
+                    });
+                    toast("카카오톡 공유 창을 열었습니다.");
+                    return;
+                  } catch {
+                    // Fallback to clipboard copy if domain is not yet whitelisted in Kakao console
+                  }
+                }
                 if (navigator.clipboard)
                   navigator.clipboard
                     .writeText(url)
