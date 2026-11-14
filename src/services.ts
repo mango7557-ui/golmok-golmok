@@ -482,11 +482,11 @@ export const integrationCatalog = [
     name: "Kakao SDK (로그인 · 공유 · 카카오맵)",
     category: "카카오 플랫폼",
     description: kakaoConfigured
-      ? "카카오 JS SDK(로그인 인가·카카오톡 공유·카카오맵) 연결 및 서버 토큰 교환 함수(kakao-auth) 준비 완료. 비밀키는 GitHub Secrets로 분리 저장됨."
+      ? "카카오맵(성수역 타일·핀), 카카오 로그인 인가 요청, 카카오톡 공유 연결 완료. 비밀키는 GitHub Secrets로 분리 저장됨."
       : "실제 카카오 로그인은 미연결. 연결 전 인증 완료로 표시하지 않습니다.",
-    status: kakaoConfigured ? "configured" : "pending",
+    status: kakaoConfigured ? "public" : "pending",
     needs:
-      "카카오 개발자 콘솔 [플랫폼 → Web]에 https://mango7557-ui.github.io 등록 및 [카카오 로그인 → Redirect URI]에 https://mango7557-ui.github.io/golmok-golmok/ 등록, 토큰 교환 서버 배포.",
+      "콘솔 도메인·Redirect URI·카카오맵 활성화 완료. 최종 프로필 토큰 교환 시 supabase/functions/kakao-auth 서버 배포 사용.",
     url: "https://developers.kakao.com/console/app",
   },
   {

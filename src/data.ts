@@ -276,8 +276,8 @@ export function initialState(): State {
       ],
       x: coords[i][0],
       y: coords[i][1],
-      lat: 37.544 + coords[i][1] * 0.000003,
-      lng: 127.049 + coords[i][0] * 0.000003,
+      lat: 37.5408 + (1000 - coords[i][1]) * 0.0000065,
+      lng: 127.05 + coords[i][0] * 0.000009,
       address: `서울 성동구 성수이로 ${18 + i * 3}길 ${4 + i} · 위치 예시`,
       photo: `https://images.unsplash.com/${photos[i]}?auto=format&fit=crop&w=800&q=80`,
       hours: {
@@ -454,6 +454,8 @@ export function loadState(): State {
         s.stores = s.stores.map((st: Store, i: number) => ({
           ...defaults[i],
           ...st,
+          lat: defaults[i].lat,
+          lng: defaults[i].lng,
           delivery: st.delivery ?? defaults[i].delivery,
           shippingFee: st.shippingFee ?? defaults[i].shippingFee,
           freeShippingMin: st.freeShippingMin ?? defaults[i].freeShippingMin,

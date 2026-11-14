@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Layers, LocateFixed, RotateCw } from "lucide-react";
+import { Layers, LocateFixed, Minus, Plus, RotateCw } from "lucide-react";
 import { mapAdapter as illustratedAdapter, type MapAdapterProps } from "./Map";
 import { businessStatus, nowFor, text } from "./domain";
 import { t } from "./i18n";
 import { kakaoConfigured, loadKakaoMaps } from "./services";
 const Demo = illustratedAdapter.Component;
 export function LiveMap(props: MapAdapterProps) {
-  const [kind, setKind] = useState<"real" | "kakao" | "demo">("real");
+  const defaultKind: "real" | "kakao" =
+    kakaoConfigured &&
+    typeof location !== "undefined" &&
+    (location.protocol === "http:" || location.protocol === "https:") &&
+    location.hostname !== "localhost"
+      ? "kakao"
+      : "real";
+  const [kind, setKind] = useState<"real" | "kakao" | "demo">(defaultKind);
   return (
     <div className="map-provider-shell">
       <div className="map-provider-tabs">
-        <button
-          className={kind === "real" ? "active" : ""}
-          onClick={() => setKind("real")}
-        >
-          OpenStreetMap
-        </button>
         {kakaoConfigured && (
           <button
             className={kind === "kakao" ? "active" : ""}
@@ -26,6 +27,12 @@ export function LiveMap(props: MapAdapterProps) {
             KakaoMap
           </button>
         )}
+        <button
+          className={kind === "real" ? "active" : ""}
+          onClick={() => setKind("real")}
+        >
+          OpenStreetMap
+        </button>
         <button
           className={kind === "demo" ? "active" : ""}
           onClick={() => setKind("demo")}
@@ -48,6 +55,8 @@ function KakaoStreetMap({
   state,
   selected,
   onSelect,
+  onSearch,
+  onLocation,
   lang,
   onFallback,
 }: MapAdapterProps & { onFallback: () => void }) {
@@ -64,10 +73,10 @@ function KakaoStreetMap({
     loadKakaoMaps()
       .then(() => {
         if (cancelled || !element.current || !window.kakao?.maps) return;
-        const center = new window.kakao.maps.LatLng(37.546, 127.0514);
+        const center = new window.kakao.maps.LatLng(37.5442, 127.0562);
         mapRef.current = new window.kakao.maps.Map(element.current, {
           center,
-          level: 4,
+          level: 3,
         });
         setStatus("ready");
       })
@@ -116,7 +125,60 @@ function KakaoStreetMap({
       <div ref={element} className="live-map-canvas" aria-label="KakaoMap 실제 지도" />
       <div className="live-map-disclaimer">
         <span className="live-dot" />
-        KakaoMap SDK · 가상 매장 위치 데이터
+        KakaoMap SDK · 성수역 가상 매장 위치
+      </div>
+      <button
+        className="search-area live-search-area"
+        onClick={() => {
+          const b = mapRef.current?.getBounds?.();
+          if (!b) return;
+          const sw = b.getSouthWest();
+          const ne = b.getNorthEast();
+          onSearch({
+            left: (sw.getLng() - 127.05) / 0.000009,
+            right: (ne.getLng() - 127.05) / 0.000009,
+            top: 1000 - (ne.getLat() - 37.5408) / 0.0000065,
+            bottom: 1000 - (sw.getLat() - 37.5408) / 0.0000065,
+          });
+        }}
+      >
+        <RotateCw size={15} />
+        {t("searchHere", lang)}
+      </button>
+      <div className="live-map-buttons">
+        <button
+          aria-label="Zoom in"
+          onClick={() =>
+            mapRef.current?.setLevel(Math.max(1, mapRef.current.getLevel() - 1))
+          }
+        >
+          <Plus size={19} />
+        </button>
+        <button
+          aria-label="Zoom out"
+          onClick={() =>
+            mapRef.current?.setLevel(Math.min(8, mapRef.current.getLevel() + 1))
+          }
+        >
+          <Minus size={19} />
+        </button>
+        <button aria-label={t("location", lang)} onClick={onLocation}>
+          <LocateFixed size={20} />
+        </button>
+        <button
+          aria-label={t("resetFilters", lang)}
+          onClick={() => {
+            if (mapRef.current && window.kakao?.maps) {
+              mapRef.current.setCenter(
+                new window.kakao.maps.LatLng(37.5442, 127.0562),
+              );
+              mapRef.current.setLevel(3);
+            }
+            onSearch({ left: 0, right: 1400, top: 0, bottom: 1000 });
+          }}
+        >
+          <Layers size={20} />
+        </button>
       </div>
       {status === "loading" && (
         <span className="map-loading-note">KakaoMap SDK 연결 중…</span>
@@ -159,7 +221,7 @@ function StreetMap({
     const instance = L.map(element.current, {
       zoomControl: false,
       scrollWheelZoom: true,
-    }).setView([37.546, 127.0514], 16);
+    }).setView([37.5442, 127.0562], 16);
     map.current = instance;
     L.control.zoom({ position: "topright" }).addTo(instance);
     const tiles = L.tileLayer(
@@ -269,10 +331,10 @@ function StreetMap({
           const bounds = map.current?.getBounds();
           if (bounds)
             onSearch({
-              left: (bounds.getWest() - 127.049) / 0.000003,
-              right: (bounds.getEast() - 127.049) / 0.000003,
-              top: (bounds.getSouth() - 37.544) / 0.000003,
-              bottom: (bounds.getNorth() - 37.544) / 0.000003,
+              left: (bounds.getWest() - 127.05) / 0.000009,
+              right: (bounds.getEast() - 127.05) / 0.000009,
+              top: 1000 - (bounds.getNorth() - 37.5408) / 0.0000065,
+              bottom: 1000 - (bounds.getSouth() - 37.5408) / 0.0000065,
             });
         }}
       >
@@ -286,7 +348,7 @@ function StreetMap({
         <button
           aria-label={t("resetFilters", lang)}
           onClick={() => {
-            map.current?.setView([37.546, 127.0514], 16);
+            map.current?.setView([37.5442, 127.0562], 16);
             onSearch({ left: 0, right: 1400, top: 0, bottom: 1000 });
           }}
         >
